@@ -1,61 +1,34 @@
-# botbowl
-botbowl is a python package that includes a framework for playing and developing bots for Blood Bowl. Our aim is to develop a bot that can beat the best humans at the game. 
+# Blood Bowl Season 3
 
-![botbowl](docs/img/botbowl_webUI.png?raw=true "botbowl")
+An independent development repository adapting [Bot Bowl](https://github.com/njustesen/botbowl) to the supplied Blood Bowl Season 3 rules for fixed-roster, standalone Human-versus-Human matches and AI research.
 
-Please cite our paper if you use botbowl in your publications.
-```
-@inproceedings{justesen2019blood,
-  title={Blood Bowl: A New Board Game Challenge and Competition for AI},
-  author={Justesen, Niels and Moore, Peter David and Uth, Lasse M{\o}ller and Togelius, Julian and Jakobsen, Christopher and Risi, Sebastian}
-  booktitle={2019 IEEE Conference on Games (COG)},
-  year={2019},
-  organization={IEEE}
-}
-```
+## Status
 
-Read more about the challenges and achievements in [Papers.md](docs/papers.md)
+Repository setup only. The imported engine still uses the upstream BB2016 rules; the Season 3 migration has not been implemented. See [BUILD_PLAN.md](BUILD_PLAN.md) for the agreed scope and implementation stages.
 
-## Installation
+## Scope
 
-### Quickstart with docker
-A docker image ready for playing in the web framework as well as doing bot development can be found at `mbermell/botbowl:latest`. To start a web server with docker run:
-```shell
-docker run -p 1234:1234 -t mbermell/botbowl
-```
-Go to: http://127.0.0.1:1234/
+- Preserve the fixed Human roster composition, existing interface, scripted opponent, pathfinding assistance, and headless AI environments.
+- Implement Season 3 changes needed for those matches, including Passing Ability, Secure the Ball, and applicable core rules and starting skills.
+- Update probability calculations, pathfinding, search, observations, and legal-action masks alongside the match engine.
+- Keep league play, progression, roster building, other teams, and optional player types outside the initial scope.
 
-### Installation with Pip
+## Upstream provenance
 
-[Make sure python 3.8 or newer is installed, together with pip.](https://www.makeuseof.com/tag/install-pip-for-python/)
-Then run:
-```
-pip install git+https://github.com/njustesen/botbowl
-```
-If python detects a C++ compiler in your system it compiles the pathfinding algorithm which makes it faster. If you used `git clone` you have to manually compile. Here's a more [detailed guide](docs/installation.md) on how to set up the Bot Bowl framework.
+This repository retains Bot Bowl's Git history. The starting revision and source references are recorded in [UPSTREAM.md](UPSTREAM.md). The original project introduction and installation instructions are preserved in [README.upstream.md](README.upstream.md).
 
-## Tutorials
-Head over to our [tutorials](docs/tutorials.md) to learn about how to use the Bot Bowl framework.
+Upstream installation instructions describe the older research environment. Dependencies and hardware compatibility will be pinned and verified for this project before training; do not assume a current Python environment works unchanged.
 
-### Run botbowl's Web Server
-```
-python -c "import botbowl.web.server as server;server.start_server(debug=True, use_reloader=False, port=1234)"
-```
-Or download the examples folder and run:
-```
-python examples/server_example.py
-```
-Go to: http://127.0.0.1:1234/
+## Local work
 
-The main page lists active games. For each active game you can click on a team to play it. If a team is disabled it is controlled by a bot and cannot be selected. Click hot-seat to play human vs. human on the same machine.
+The local remote named `origin` is reserved for this independent repository. The `upstream` remote fetches the original project and has its push URL disabled. Changes to this project are committed and pushed here; contributing back upstream would be a separate decision.
 
-## Bot Bowl - the compitition
-Bot Bowl is an AI competition using the botbowl framework. Go read all about the results of [Bot Bowl III](docs/bot-bowl-iii.md). Not to be confused with 'botbowl' which refers to the module/repo. 
+Use `codex/` branches for implementation work. The initial setup commit is on `main`.
 
-## Get involved 
-We'd love you to join us in creating really good bots for Blood Bowl! There are mainly two ways. First is developing your own bot to compete in the competition. Head over to the [tutorials](docs/tutorials.md) to get started creating your own awesome bot. The second way is contributing to the project itself with development. Head over to [Development.md](docs/development.md) to learn more.  
+Local rule PDFs, credentials, virtual environments, training datasets, model checkpoints, and generated replays are not part of the initial repository contents. The build plan references the supplied local rules folder.
 
-Join the [Bot Bowl Discord server](https://discord.gg/MTXMuae) for questions, discussions and the latest news! 
+## Attribution and license
 
-## Disclaimers and Copyrighted Art
-Bot Bowl is not affiliated with or endorsed by any company and/or trademark. Bot Bowl is an open research framework and the authors have no commercial interests in this project. The web interface in Bot Bowl currently uses a small set of icons from the Fantasy Football Client. These icons are not included in the license of Bot Bowl. If you are the author of these icons and don't want us to use them in this project, please contact us at njustesen at gmail dot com, and we will replace them ASAP. The team icons are from FUMBBL and are used with permission. The license described in [LICENSE](LICENSE) only covers the source code - not any of the graphics files.
+Based on Bot Bowl by Niels Justesen and its contributors. The original source license is retained unchanged in [LICENSE](LICENSE). As upstream states, that license does not cover its graphics. See [README.upstream.md](README.upstream.md) for the original attribution, paper citation, and graphics notices.
+
+This README was replaced for the independent Season 3 project on 28 October 2026; the original is preserved separately. This is not an official Games Workshop project.
