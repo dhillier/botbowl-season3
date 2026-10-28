@@ -218,7 +218,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="stats-box left">
+                    <div class="stats-box left" ng-class="{'target-stats': playerInFocus(game.state.away_team).target_characteristics}">
                         <span class="icon-box red">
                             <img src="static/img/iconssmall/{{ playerIcon(playerInFocus(game.state.away_team), false) }}" width="28px" height="28px" />
                         </span>
@@ -235,11 +235,15 @@
                             </div>
                             <div class="attribute text-center">
                                 <div class="gamelabel">AG</div>
-                                <div class="value red">{{playerInFocus(game.state.away_team).ag}}</div>
+                                <div class="value red">{{playerInFocus(game.state.away_team) | characteristic:'ag'}}</div>
+                            </div>
+                            <div class="attribute text-center" ng-if="playerInFocus(game.state.away_team).target_characteristics">
+                                <div class="gamelabel" title="Passing Ability">PA</div>
+                                <div class="value red">{{playerInFocus(game.state.away_team) | characteristic:'pa'}}</div>
                             </div>
                             <div class="attribute text-center">
                                 <div class="gamelabel">AV</div>
-                                <div class="value red">{{playerInFocus(game.state.away_team).av}}</div>
+                                <div class="value red">{{playerInFocus(game.state.away_team) | characteristic:'av'}}</div>
                             </div>
                         </span>
                     </div>
@@ -277,7 +281,7 @@
                     <div>
                         <span style="float:right" class="label right label-{{ playerReadyStateClass(playerInFocus(game.state.home_team)) }}">{{ platerStateText(playerInFocus(game.state.home_team).state) }}</span>
                     </div>
-                    <div class="stats-box left">
+                    <div class="stats-box left" ng-class="{'target-stats': playerInFocus(game.state.home_team).target_characteristics}">
                         <span class="icon-box blue">
                             <img src="static/img/iconssmall/{{ playerIcon(playerInFocus(game.state.home_team), false) }}" width="28px" height="28px" />
                         </span>
@@ -294,11 +298,15 @@
                             </div>
                             <div class="attribute text-center">
                                 <div class="gamelabel">AG</div>
-                                <div class="value blue">{{playerInFocus(game.state.home_team).ag}}</div>
+                                <div class="value blue">{{playerInFocus(game.state.home_team) | characteristic:'ag'}}</div>
+                            </div>
+                            <div class="attribute text-center" ng-if="playerInFocus(game.state.home_team).target_characteristics">
+                                <div class="gamelabel" title="Passing Ability">PA</div>
+                                <div class="value blue">{{playerInFocus(game.state.home_team) | characteristic:'pa'}}</div>
                             </div>
                             <div class="attribute text-center">
                                 <div class="gamelabel">AV</div>
-                                <div class="value blue">{{playerInFocus(game.state.home_team).av}}</div>
+                                <div class="value blue">{{playerInFocus(game.state.home_team) | characteristic:'av'}}</div>
                             </div>
                         </span>
                     </div>

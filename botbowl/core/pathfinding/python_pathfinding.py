@@ -17,6 +17,17 @@ import numpy as np
 from queue import PriorityQueue
 
 
+def _team_reroll_budget(game, player, allowed):
+    """Opt-in planning budget; legacy callers retain their hypothetical one RR.
+
+    Season 3 uses the team's actual remaining pool (including drive re-rolls),
+    subject to the same turn/coach restrictions as engine resolution.
+    """
+    if not game.is_season3:
+        return int(bool(allowed))
+    return player.team.state.rerolls if allowed and game.can_use_reroll(player.team) else 0
+
+
 @treat_as_immutable
 class Path:
     final_node: 'Node'
@@ -155,7 +166,9 @@ class Node:
 
     def _add_fail_state(self, new_states, prev_state, prev_state_p, p, index):
         fail_state = [rr for rr in prev_state]
-        fail_state[index] = False
+        # Skill allowances are 0/1; the team allowance can exceed one in S3.
+        # Only the successful second attempt is added: never re-roll a re-roll.
+        fail_state[index] -= 1
         fail_state_p = prev_state_p * (1 - p) * p
         fail_state = tuple(fail_state)
         if fail_state in new_states:
@@ -253,7 +266,8 @@ class Pathfinder:
         can_dodge = self.player.has_skill(Skill.DODGE) and Skill.DODGE not in self.player.state.used_skills
         can_sure_feet = self.player.has_skill(Skill.SURE_FEET) and Skill.SURE_FEET not in self.player.state.used_skills
         can_sure_hands = self.player.has_skill(Skill.SURE_HANDS) and not self.secure_ball
-        rr_states = {(self.trr, can_dodge, can_sure_feet, can_sure_hands): 1}  # RRs left and probability of success
+        budget = _team_reroll_budget(self.game, self.player, self.trr)
+        rr_states = {(budget, can_dodge, can_sure_feet, can_sure_hands): 1}
         node = Node(None,
                     position=self.player.position,
                     moves_left=self.ma,

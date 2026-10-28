@@ -206,6 +206,7 @@ def test_pathfinder_secure_pickup_ignores_ag_weather_and_sure_hands(implementati
     path = pf.Pathfinder(game, player, secure_ball=True).get_path(Square(6, 5))
     assert path.prob == pytest.approx(5 / 6)
     assert path.rolls[-1] == [2]
+    player.team.state.rerolls = 1
     path_with_rr = pf.Pathfinder(game, player, secure_ball=True, trr=True).get_path(Square(6, 5))
     assert path_with_rr.prob == pytest.approx(35 / 36)
 

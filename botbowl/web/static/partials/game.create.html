@@ -56,6 +56,7 @@
                                     <th class="text-center">MA</th>
                                     <th class="text-center">ST</th>
                                     <th class="text-center">AG</th>
+                                    <th class="text-center" ng-if="getTeam(home_team_name) | hasPassingAbility">PA</th>
                                     <th class="text-center">AV</th>
                                     <th class="text-center">Skill</th>
                                 </tr>
@@ -66,8 +67,9 @@
                                     <td><img width="20px" ng-src="static/img/iconssmall/{{playerIcon(player, true, getTeam(home_team_name).race) }}" /> {{ player.role }}</td>
                                     <td class="text-center">{{ player.ma }}</td>
                                     <td class="text-center">{{ player.st }}</td>
-                                    <td class="text-center">{{ player.ag }}</td>
-                                    <td class="text-center">{{ player.av }}</td>
+                                    <td class="text-center">{{ player | characteristic:'ag' }}</td>
+                                    <td class="text-center" ng-if="getTeam(home_team_name) | hasPassingAbility">{{ player | characteristic:'pa' }}</td>
+                                    <td class="text-center">{{ player | characteristic:'av' }}</td>
                                     <td><span class="" ng-repeat="skill in player.role_skills.concat(player.extra_skills)">{{ prettify(skill) }}{{$last ? '' : ', '}}</span></td>
                                 </tr>
                             </tbody>
@@ -145,6 +147,7 @@
                                     <th class="text-center">MA</th>
                                     <th class="text-center">ST</th>
                                     <th class="text-center">AG</th>
+                                    <th class="text-center" ng-if="getTeam(away_team_name) | hasPassingAbility">PA</th>
                                     <th class="text-center">AV</th>
                                     <th class="text-center">Skill</th>
                                 </tr>
@@ -155,8 +158,9 @@
                                     <td><img width="20px" src="static/img/iconssmall/{{ playerIcon(player, false, getTeam(away_team_name).race) }}" /> {{ player.role }}</td>
                                     <td class="text-center">{{ player.ma }}</td>
                                     <td class="text-center">{{ player.st }}</td>
-                                    <td class="text-center">{{ player.ag }}</td>
-                                    <td class="text-center">{{ player.av }}</td>
+                                    <td class="text-center">{{ player | characteristic:'ag' }}</td>
+                                    <td class="text-center" ng-if="getTeam(away_team_name) | hasPassingAbility">{{ player | characteristic:'pa' }}</td>
+                                    <td class="text-center">{{ player | characteristic:'av' }}</td>
                                     <td><span class="" ng-repeat="skill in player.role_skills.concat(player.extra_skills)">{{ prettify(skill) }}{{$last ? '' : ', '}}</span></td>
                                 </tr>
                             </tbody>

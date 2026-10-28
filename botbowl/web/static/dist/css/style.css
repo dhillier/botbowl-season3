@@ -356,6 +356,16 @@ a:hover {
   font-size: 1.2em;
   width: 100%;
 }
+.gamecontent .player-info .stats-box.target-stats .icon-box {
+  float: none;
+  display: block;
+  width: auto;
+  text-align: center;
+  margin: 4px;
+}
+.gamecontent .player-info .stats-box.target-stats .attribute .value {
+  width: 24px;
+}
 .gamecontent .player-info .stats-box .name-box {
   padding: 2px;
   font-weight: normal;

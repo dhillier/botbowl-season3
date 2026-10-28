@@ -28,7 +28,8 @@ namespace node_ns {
 
     class Node;
 
-    using rr_used = std::array<bool, 4>;
+    // Remaining allowances: an arbitrary team budget and 0/1 skill budgets.
+    using rr_used = std::array<int, 4>;
     using rr_map_pair = std::pair<rr_used, double>;
     using rr_state = std::map<rr_used, double>;
     using node_ptr = std::shared_ptr<Node>;
@@ -46,7 +47,7 @@ namespace node_ns {
             Node();
 
             //root node constructor
-            Node(Square position, int moves_left, int gfis_left, double euclidean_distance, bool trr, bool dodge, bool sure_feet, bool sure_hands, bool can_foul, bool can_block, bool can_handoff);
+            Node(Square position, int moves_left, int gfis_left, double euclidean_distance, int trr, bool dodge, bool sure_feet, bool sure_hands, bool can_foul, bool can_block, bool can_handoff);
 
             // non-root node with block dice
             Node(node_ptr parent, Square position, int moves_left, int gfis_left, double euclidean_distance, int block_dice);

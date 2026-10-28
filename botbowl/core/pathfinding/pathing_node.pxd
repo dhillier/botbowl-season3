@@ -27,7 +27,7 @@ cdef extern from "pathing_node.h" namespace "node_ns":
         vector[int] rolls
 
         Node() except +
-        Node(Square, int, int, double, bint, bint, bint, bint, bint, bint, bint) except +  #root node constructor
+        Node(Square, int, int, double, int, bint, bint, bint, bint, bint, bint) except +  #root node constructor
         Node(shared_ptr[Node], Square, int, int, double, int) except +   # non-root node with block dice
         Node(shared_ptr[Node], Square, int, int, double) except +        # non-root node without block dice
 

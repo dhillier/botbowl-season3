@@ -14,7 +14,7 @@ the exact same result as the python implementation.
 import botbowl.core.table as table
 import botbowl.core.model as model
 import botbowl.core.forward_model as forward_model
-from .python_pathfinding import _alter_state, _reset_state
+from .python_pathfinding import _alter_state, _reset_state, _team_reroll_budget
 
 from libcpp.map cimport map as mapcpp
 from libcpp.vector cimport vector
@@ -215,7 +215,7 @@ cdef class Pathfinder:
         cdef:
             Square start_square
             NodePtr node
-            int ma, gfis_used
+            int ma, gfis_used, team_rerolls
             bint can_dodge, can_sure_feet, can_sure_hands
 
         self.carries_ball = self.player is self.game.get_ball_carrier()
@@ -229,9 +229,10 @@ cdef class Pathfinder:
         can_dodge = self.player.has_skill(table.Skill.DODGE) and table.Skill.DODGE not in self.player.state.used_skills
         can_sure_feet = self.player.has_skill(table.Skill.SURE_FEET) and table.Skill.SURE_FEET not in self.player.state.used_skills
         can_sure_hands = self.player.has_skill(table.Skill.SURE_HANDS) and not self.secure_ball
+        team_rerolls = _team_reroll_budget(self.game, self.player, self.trr)
 
         # Create root node
-        node = make_shared[Node](start_square, self.ma, self.gfis, 0, self.trr, can_dodge, can_sure_feet, can_sure_hands, self.can_foul, self.can_block, self.can_handoff)
+        node = make_shared[Node](start_square, self.ma, self.gfis, 0, team_rerolls, can_dodge, can_sure_feet, can_sure_hands, self.can_foul, self.can_block, self.can_handoff)
 
         if not self.player.state.up:
             node = self._expand_stand_up(node)

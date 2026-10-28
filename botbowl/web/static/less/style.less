@@ -427,6 +427,21 @@ a, a:focus, a:hover {
             font-size: 1.2em;
             width: 100%;
 
+            // Five native-target characteristics fit on one row below the icon.
+            &.target-stats {
+                .icon-box {
+                    float: none;
+                    display: block;
+                    width: auto;
+                    text-align: center;
+                    margin: 4px;
+                }
+
+                .attribute .value {
+                    width: 24px;
+                }
+            }
+
             .name-box {
                 padding: 2px;
                 font-weight: normal;

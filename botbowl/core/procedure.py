@@ -3111,7 +3111,7 @@ class MoveAction(Procedure):
                                     can_foul=can_foul,
                                     secure_ball=self.player_action_type == PlayerActionType.SECURE_BALL,
                                     blitz_target=self.defender if isinstance(self, BlitzAction) else None,
-                                    trr=False)
+                                    trr=self.game.is_season3)
             paths = pathfinder.get_paths()
             self.paths = {path.get_last_step(): path for path in paths}
             actions += self._get_actions_from_paths(paths)

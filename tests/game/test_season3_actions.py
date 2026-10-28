@@ -186,6 +186,7 @@ def test_pathfinder_finds_required_jump_and_accounts_for_rushes(implementation):
     assert path.steps == (Square(7, 5),)
     assert path.prob == pytest.approx((5 / 6) ** 2 * (4 / 6))
     assert tuple(tuple(r) for r in path.rolls) == ((2, 2, 3),)
+    player.team.state.rerolls = 1
     with_reroll = pf.Pathfinder(game, player, trr=True).get_path(Square(7, 5))
     assert with_reroll.prob == pytest.approx(path.prob * (1 + 1 / 6 + 1 / 6 + 2 / 6))
 

@@ -23,7 +23,7 @@ namespace node_ns {
 
     //root node constructor
     Node::Node(Square position, int moves_left, int gfis_left, double euclidean_distance,
-                bool trr, bool dodge, bool sure_feet, bool sure_hands, bool can_foul, bool can_block, bool can_handoff)
+                int trr, bool dodge, bool sure_feet, bool sure_hands, bool can_foul, bool can_block, bool can_handoff)
          : position(position), moves_left(moves_left), gfis_left(gfis_left), foul_roll(0),
          handoff_roll(0), block_dice(0), can_foul(can_foul), can_block(can_block), can_handoff(can_handoff),
          euclidean_distance(euclidean_distance), prob(1.0)
@@ -78,7 +78,8 @@ namespace node_ns {
     void Node::_add_fail_state(rr_state & new_states, rr_used & prev_state, double prev_state_p, double p, int index){
         auto fail_state = prev_state;
         double fail_state_p = prev_state_p * (1.0 - p) * p;
-        fail_state[index] = false;
+        // Add only a successful second attempt, never a third attempt.
+        --fail_state[index];
         new_states[fail_state] += fail_state_p; // if fail_state not in new states, it is init as 0
     }
 
