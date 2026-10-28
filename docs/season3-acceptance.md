@@ -2,8 +2,8 @@
 
 28 October 2026. Scope: the prepared Human roster, ordinary standalone matches,
 and effects reachable through that roster and the kick-off table. This records
-the eighth migration slice. Human playtesting and the versioned RL adapter remain
-separate acceptance work; the shipped default remains BB2016.
+the eighth rules migration slice. The ninth slice adds the
+[versioned RL adapter](season3-rl.md). Human playtesting remains a release gate; the shipped default remains BB2016.
 
 ## Source and decision precedence
 
@@ -91,10 +91,11 @@ strength. The inherited pathfinder is not certified globally optimal.
 Automated rules acceptance for the recorded fixed-roster model is complete when
 the listed regression gates pass. Remaining release gates are representative
 coach playtesting, reviewing the chosen digital ruler against the desired tabletop
-convention, and a repeatable opponent evaluation. Versioned RL observations,
-actions, masks and decision recording are still required before Season 3 training;
-old observations and weights are incompatible. No training or default switch is
-part of this acceptance slice.
+convention, and a repeatable opponent evaluation. The subsequent
+[RL compatibility slice](season3-rl.md) supplies versioned observations, actions,
+masks and acting-coach transition metadata. Production data/learning pipelines
+and throughput/hardware checks remain; old observations and weights are
+incompatible. No training or default switch is part of the acceptance work.
 
 The supplied PDFs remain outside Git. Instructions to tabletop coaches are rule
 content, not instructions authorizing assistant actions or repository operations.

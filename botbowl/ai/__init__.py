@@ -45,3 +45,10 @@ register(
     entry_point='botbowl.ai.env:BotBowlEnv',
     kwargs={'env_conf': EnvConf(size=1)}
 )
+
+# Added 28 October 2026: independent Gym 0.26 contract; v4 stays legacy.
+from .season3_env import Season3Env, Season3Adapter
+
+register(id='botbowl-s3-v1', entry_point='botbowl.ai.season3_env:Season3Env')
+register(id='botbowl-s3-pathfinding-v1', entry_point='botbowl.ai.season3_env:Season3Env',
+         kwargs={'pathfinding': True})

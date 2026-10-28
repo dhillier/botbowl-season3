@@ -4,6 +4,7 @@ Author: Niels Justesen
 Year: 2018
 ==========================
 This module contains the BotBowlEnv class; implementing the Open AI Gym interface.
+Modified 28 October 2026: reject incompatible Season 3 configurations.
 """
 
 
@@ -194,6 +195,9 @@ class BotBowlEnv(gym.Env):
             self.env_conf = EnvConf()
         else:
             self.env_conf = env_conf
+
+        if self.env_conf.config.ruleset == 'BB2025':
+            raise ValueError('Legacy v4 observations/actions cannot encode Season 3; use Season3Env or botbowl-s3-v1')
 
         # Game
         self.game = None

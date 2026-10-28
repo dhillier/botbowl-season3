@@ -13,7 +13,19 @@ python -m examples.season3_preview --seed 0
 python -m pytest tests/game/test_season3.py tests/game/test_secure_ball.py tests/game/test_season3_actions.py tests/game/test_season3_status.py tests/game/test_season3_flow.py tests/game/test_season3_ball.py tests/game/test_season3_pathfinding.py tests/game/test_season3_geometry.py tests/game/test_season3_acceptance.py -q
 ```
 
-The [acceptance record](docs/season3-acceptance.md) pins the digital interception model, records the user-approved modified-1-or-less fumble ruling, and documents the final interaction fixes. Representative coach playtesting, review of the digital ruler convention, versioned RL observations/actions and opponent evaluation remain. Do not use this preview for Season 3 training or claim full rules fidelity yet.
+The [acceptance record](docs/season3-acceptance.md) pins the digital interception model, records the user-approved modified-1-or-less fumble ruling, and documents the final interaction fixes. The versioned Season 3 RL interface now supplies observations, player/placement actions, legal masks and acting-coach transition metadata. Representative coach playtesting, review of the digital ruler convention and learning/evaluation work remain. Use the dedicated Season 3 IDs for small learning experiments; coach review and performance/evaluation work remain before expensive training or a full-fidelity release claim.
+
+## Season 3 RL interface
+
+`botbowl-s3-v1` and `botbowl-s3-pathfinding-v1` expose the versioned Gym 0.26 interface for the fixed Human match. Observations include PA, statuses, re-roll resources, pending dice/routes and off-pitch identities. The 10,256-action space has matching legal masks, including individual placements and defensive decisions. Self-play exposes both coaches; a supplied random or scripted opponent leaves the home coach to the learner. Old v4 policies require explicit migration.
+
+```sh
+python -m examples.season3_rl --seed 0
+python -m examples.season3_rl --seed 4 --opponent scripted
+python -m pytest tests/ai/test_season3_env.py -q
+```
+
+See the [RL contract and usage](docs/season3-rl.md) for shapes, action indices, coach/reward handling, checkpoint metadata and limits. No learned opponent or training job is included.
 
 ## Scope
 
