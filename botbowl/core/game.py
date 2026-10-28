@@ -13,6 +13,7 @@ import itertools
 from botbowl.core.load import *
 from botbowl.core.procedure import *
 from botbowl.core.forward_model import Trajectory, MovementStep, Step
+from botbowl.core.geometry import under_interception_ruler
 from copy import deepcopy
 from typing import Optional, Tuple, List, Union, Any
 
@@ -1057,7 +1058,7 @@ class Game:
         return self.get_secure_ball_path(player) is not None
 
     def get_secure_ball_path(self, player: Player, allow_team_reroll: bool = False):
-        """A route whose pickup is fixed 2+ and cannot use Sure Hands.
+        """A route with a base 2+ pickup (3+ in rain), without Sure Hands.
 
         Declaration checks belong to can_secure_ball; this also serves the
         active action after the turn's declaration allowance has been spent.
@@ -1476,6 +1477,10 @@ class Game:
             modifiers += 1
 
         return modifiers
+
+    def get_secure_ball_modifiers(self) -> int:
+        """A base 2+ pickup, not an AG test; May 2026 FAQ applies rain."""
+        return -1 if self.state.weather == WeatherType.POURING_RAIN else 0
 
     def num_tackle_zones_in(self, player: Player) -> int:
         """
@@ -2381,7 +2386,8 @@ class Game:
 
     def get_interceptors(self, position_from: Square, position_to: Square, team: Team) -> List[Player]:
         """
-        Finds interceptors using the following rules:
+        Season 3 uses the pinned square/ruler-overlap model, in roster order.
+        Legacy editions find interceptors using the following approximation:
         1) Find line x from a to b
         3) Find squares s where x intersects
         3) Find manhattan neighboring n squares of s
@@ -2392,6 +2398,11 @@ class Game:
         :param position_to where the ball is passed to
         :param team: team that can attempt interception
         """
+
+        if self.is_season3:
+            return [player for player in team.players
+                    if player.position is not None and player.can_catch() and
+                    under_interception_ruler(position_from, position_to, player.position)]
 
         # 1) Find line x from a to b
         x = get_line((position_from.x, position_from.y), (position_to.x, position_to.y))
@@ -2416,16 +2427,10 @@ class Game:
                     continue
                 if neighbor.distance(position_to) > max_distance:
                     continue
-                # The Season 3 horizontal-pass illustration explicitly lets
-                # the adjacent row intercept. Clipping to the endpoint box
-                # collapses horizontal/vertical rulers to a one-square line.
-                # Retain the upstream grid corridor and endpoint-distance
-                # limits; its exact physical ruler width remains provisional.
-                if not self.is_season3:
-                    if neighbor.x > max(position_from.x, position_to.x) or neighbor.x < min(position_from.x, position_to.x):
-                        continue
-                    if neighbor.y > max(position_from.y, position_to.y) or neighbor.y < min(position_from.y, position_to.y):
-                        continue
+                if neighbor.x > max(position_from.x, position_to.x) or neighbor.x < min(position_from.x, position_to.x):
+                    continue
+                if neighbor.y > max(position_from.y, position_to.y) or neighbor.y < min(position_from.y, position_to.y):
+                    continue
 
                 # 5) Remove squares without standing opponents with hands
                 player_at = self.get_player_at(neighbor)
@@ -2448,9 +2453,6 @@ class Game:
         for square in n:
             players.append(self.get_player_at(square))
 
-        if self.is_season3:
-            # Stable coach-choice ordering for normal play and search.
-            players.sort(key=lambda player: team.players.index(player))
         return players
 
     def get_available_actions(self) -> List[ActionChoice]:
@@ -2626,7 +2628,8 @@ class Game:
                     if ball_at is not None and ball_at.on_ground:
                         target = player.get_ag_target()
                         modifiers = self.get_pickup_modifiers(player, square)
-                        rolls.append(2 if secure_ball else min(6, max(2, target - modifiers)))
+                        rolls.append(2 - self.get_secure_ball_modifiers() if secure_ball else
+                                     min(6, max(2, target - modifiers)))
                 d6_rolls.append(rolls)
             if len(move_positions) > 0:
                 actions.append(ActionChoice(ActionType.MOVE, team=player.team,
@@ -2695,7 +2698,7 @@ class Game:
             tests = [rush_target] * rushes + [target]
             ball = self.get_ball_at(position)
             if ball is not None and ball.on_ground and not ball.is_carried:
-                tests.append(2 if self.state.player_action_type == PlayerActionType.SECURE_BALL else
+                tests.append(2 - self.get_secure_ball_modifiers() if self.state.player_action_type == PlayerActionType.SECURE_BALL else
                              min(6, max(2, player.get_ag_target() - self.get_pickup_modifiers(player, position))))
             rolls.append(tests)
         return [ActionChoice(ActionType.JUMP, team=player.team, positions=positions, rolls=rolls)] if positions else []

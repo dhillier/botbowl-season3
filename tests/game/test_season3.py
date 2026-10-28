@@ -80,13 +80,12 @@ def test_pass_range_modifiers(distance, modifier):
 
 
 @pytest.mark.parametrize('roll,expected', [
-    (1, OutcomeType.FUMBLE), (2, OutcomeType.INACCURATE_PASS),
-    (3, OutcomeType.INACCURATE_PASS), (4, OutcomeType.FUMBLE),
+    (1, OutcomeType.FUMBLE), (2, OutcomeType.FUMBLE),
+    (3, OutcomeType.FUMBLE), (4, OutcomeType.FUMBLE),
     (5, OutcomeType.INACCURATE_PASS), (6, OutcomeType.ACCURATE_PASS)])
 def test_long_bomb_natural_and_modified_results(roll, expected):
     game, (passer, catcher) = season3_turn([(3, 5), (14, 5)], ball=(3, 5))
-    # Modifier -3: natural 2 and 3 produce -1 and 0. The supplied revision
-    # explicitly calls a modified 1 a fumble, not every result below 2.
+    # Modifier -3: coach ruling makes natural 1 through 4 fumbles.
     d6 = [roll, 3] if expected == OutcomeType.ACCURATE_PASS else [roll]
     d8 = [] if expected == OutcomeType.ACCURATE_PASS else (
         [7] if expected == OutcomeType.FUMBLE else [7, 7, 7, 7])

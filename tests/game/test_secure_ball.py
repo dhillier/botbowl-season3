@@ -18,15 +18,16 @@ def secure_players(game):
 
 @pytest.mark.parametrize('ag', [1, 3, 6])
 @pytest.mark.parametrize('weather', [WeatherType.NICE, WeatherType.POURING_RAIN])
-def test_fixed_two_plus_pickup_ends_activation(ag, weather):
+def test_base_two_plus_pickup_applies_rain_but_not_ag(ag, weather):
     game, (player,) = season3_turn([(5, 5)], ball=(6, 5))
     player.role.ag = ag
     game.state.weather = weather
-    with only_fixed_rolls(game, d6=[2]):
+    target = 3 if weather == WeatherType.POURING_RAIN else 2
+    with only_fixed_rolls(game, d6=[target]):
         start_secure(game, player)
         assert game.state.player_action_type == PlayerActionType.SECURE_BALL
         move = next(a for a in game.get_available_actions() if a.action_type == ActionType.MOVE)
-        assert move.rolls[move.positions.index(Square(6, 5))] == [2]
+        assert move.rolls[move.positions.index(Square(6, 5))] == [target]
         game.step(Action(ActionType.MOVE, position=Square(6, 5)))
     assert game.get_ball_carrier() == player
     assert player.state.used
@@ -36,7 +37,7 @@ def test_fixed_two_plus_pickup_ends_activation(ag, weather):
     pickup = next(r for r in game.state.reports if r.outcome_type == OutcomeType.SUCCESSFUL_PICKUP)
     assert pickup.rolls[0].roll_type == RollType.SECURE_BALL_ROLL
     assert pickup.rolls[0].target == 2
-    assert pickup.rolls[0].modifiers == 0
+    assert pickup.rolls[0].modifiers == 2 - target
 
 
 @pytest.mark.parametrize('sure_hands', [False, True])
@@ -195,7 +196,7 @@ def test_player_already_on_loose_ball_can_secure_it(prone):
 
 @pytest.mark.parametrize('implementation', ['python', 'cython'])
 @pytest.mark.parametrize('sure_hands', [False, True])
-def test_pathfinder_secure_pickup_ignores_ag_weather_and_sure_hands(implementation, sure_hands):
+def test_pathfinder_secure_pickup_applies_rain_but_not_ag_or_sure_hands(implementation, sure_hands):
     pf = python_pathfinding if implementation == 'python' else pytest.importorskip(
         'botbowl.core.pathfinding.cython_pathfinding')
     game, (player,) = season3_turn([(5, 5)], ball=(6, 5))
@@ -204,11 +205,11 @@ def test_pathfinder_secure_pickup_ignores_ag_weather_and_sure_hands(implementati
     if sure_hands:
         player.extra_skills = [Skill.SURE_HANDS]
     path = pf.Pathfinder(game, player, secure_ball=True).get_path(Square(6, 5))
-    assert path.prob == pytest.approx(5 / 6)
-    assert path.rolls[-1] == [2]
+    assert path.prob == pytest.approx(4 / 6)
+    assert path.rolls[-1] == [3]
     player.team.state.rerolls = 1
     path_with_rr = pf.Pathfinder(game, player, secure_ball=True, trr=True).get_path(Square(6, 5))
-    assert path_with_rr.prob == pytest.approx(35 / 36)
+    assert path_with_rr.prob == pytest.approx(8 / 9)
 
 
 @pytest.mark.parametrize('pathfinding_enabled', [False, True])

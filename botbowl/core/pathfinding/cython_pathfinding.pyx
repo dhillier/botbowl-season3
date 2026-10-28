@@ -251,7 +251,7 @@ cdef class Pathfinder:
     cdef int _get_pickup_target(self, Square to_pos):
         cdef int target = self.dodge_target + self.tzones[to_pos.y][to_pos.x]
         if self.secure_ball:
-            return 2
+            return 2 - self.game.get_secure_ball_modifiers()
         if self.game.state.weather == table.WeatherType.POURING_RAIN:
             target += 1
         return min(6, max(2, target))

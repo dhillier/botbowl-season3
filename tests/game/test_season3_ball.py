@@ -286,6 +286,9 @@ def test_chain_push_can_score_for_non_active_teammate_without_skipping_own_turn(
         game.step(Action(ActionType.SELECT_PUSH))
         game.step(Action(ActionType.PUSH, position=scorer.position))
         game.step(Action(ActionType.PUSH, position=Square(1, 5)))
+        # Complete the original block's compulsory sequence before scoring.
+        assert isinstance(game.get_procedure(), FollowUp)
+        game.step(Action(ActionType.FOLLOW_UP, position=attacker.position))
     assert scorer.team.state.score == 1
     assert len(reports(game, OutcomeType.TOUCHDOWN)) == 1
     assert not game.has_report_of_type(OutcomeType.TURN_SKIPPED)

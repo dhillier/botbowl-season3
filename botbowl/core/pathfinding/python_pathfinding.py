@@ -293,7 +293,7 @@ class Pathfinder:
 
     def _get_pickup_target(self, to_pos):
         if self.secure_ball:
-            return 2
+            return 2 - self.game.get_secure_ball_modifiers()
         zones_to = self.tzones[to_pos.y][to_pos.x]
         modifiers = 0 if self.game.is_season3 else 1
         if not self.player.has_skill(Skill.BIG_HAND):

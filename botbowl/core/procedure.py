@@ -106,7 +106,11 @@ class Apothecary(Procedure):
 
     def start(self):
         if self.game.state.current_team != self.player.team:
-            self.game.add_opp_clock(self.player.team)
+            self.game.add_secondary_clock(self.player.team)
+
+    def end(self):
+        if self.game.state.current_team != self.player.team:
+            self.game.remove_secondary_clocks()
 
     def step(self, action):
 
@@ -544,6 +548,11 @@ class Block(Procedure):
 
         self.game.remove_secondary_clocks()
 
+        if self.game.is_season3:
+            # Effects run above this boundary; scoring/turnover cannot purge
+            # unresolved knockdowns, chain pushes, injuries or treatment.
+            BlockResolution(self.game)
+
         # Dice result
         if self.selected_die == BBDieResult.ATTACKER_DOWN:
             # Turnover(self.game)
@@ -588,6 +597,12 @@ class Block(Procedure):
         return False
 
     def both_down(self):
+        if self.game.is_season3:
+            # Both fall together. Neither may catch the other's bouncing ball
+            # while waiting for their own armour/injury procedure to run.
+            for player in (self.attacker, self.defender):
+                if not player.has_usable_skill(Skill.BLOCK):
+                    player.place_prone()
         # Attacker down
         if not self.attacker.has_usable_skill(Skill.BLOCK):
             KnockDown(self.game, self.attacker, inflictor=self.defender, turnover=True)
@@ -2186,7 +2201,7 @@ class GFI(Procedure):
             # Roll
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.GFI_ROLL)
             self.roll.target = 2
-            self.roll.modifiers = 1 if self.game.state.weather == WeatherType.BLIZZARD else 0
+            self.roll.modifiers = (-1 if self.game.is_season3 else 1) if self.game.state.weather == WeatherType.BLIZZARD else 0
 
             if self.roll.is_d6_success():
 
@@ -2603,8 +2618,9 @@ class Season3PassAttempt(PassAttempt):
                 self.roll.modifiers = self.game.get_pass_modifiers(self.passer, self.pass_distance)
                 result = self.roll.get_sum()
                 self.accurate = self.roll.is_d6_success()
-                # The supplied revised rule says exactly 1 after modifiers.
-                self.fumble = not self.accurate and (result == 1 or result + self.roll.modifiers == 1)
+                # Coach ruling, 28 October 2026: modified 1 or less. The supplied
+                # literal wording differs; see docs/season3-acceptance.md.
+                self.fumble = not self.accurate and (result == 1 or result + self.roll.modifiers <= 1)
                 outcome = (OutcomeType.ACCURATE_PASS if self.accurate else
                            OutcomeType.FUMBLE if self.fumble else OutcomeType.INACCURATE_PASS)
                 self.game.report(Outcome(outcome, player=self.passer, rolls=[self.roll]))
@@ -2671,7 +2687,8 @@ class Pickup(Procedure):
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=(
                 RollType.SECURE_BALL_ROLL if self.secure else RollType.AGILITY_ROLL))
             self.roll.target = 2 if self.secure else self.player.get_ag_target()
-            self.roll.modifiers = 0 if self.secure else self.game.get_pickup_modifiers(self.player, self.ball.position)
+            self.roll.modifiers = (self.game.get_secure_ball_modifiers() if self.secure else
+                                   self.game.get_pickup_modifiers(self.player, self.ball.position))
 
             # Roll
             if self.roll.is_d6_success():
@@ -3129,7 +3146,7 @@ class MoveAction(Procedure):
 
 
 class SecureBallAction(MoveAction):
-    """A Move Action ending in a mandatory fixed 2+ pickup and activation end."""
+    """A Move Action ending in a mandatory base 2+ pickup and activation end."""
 
     def __init__(self, game, player):
         super().__init__(game, player, player_action_type=PlayerActionType.SECURE_BALL)
@@ -3593,10 +3610,10 @@ class PreKickoff(Procedure):
                 roll.target = 4
                 if roll.get_sum() + roll.modifiers >= 4:
                     self.game.kod_to_reserves(player)
-                    self.checked.append(player)
+                    self.checked = self.checked + [player]
                     self.game.report(Outcome(OutcomeType.PLAYER_READY, player=player, rolls=[roll]))
                     return False
-                self.checked.append(player)
+                self.checked = self.checked + [player]
                 self.game.report(Outcome(OutcomeType.PLAYER_NOT_READY, player=player, rolls=[roll]))
                 return False
         return True
@@ -4176,9 +4193,32 @@ class Turnover(Procedure):
         super().__init__(game)
 
     def step(self, action):
+        if self.game.is_season3:
+            for proc in reversed(self.game.state.stack.items):
+                if isinstance(proc, BlockResolution) and not proc.done:
+                    proc.turnover = True
+                    return True
         self.game.report(Outcome(OutcomeType.TURNOVER, team=self.game.state.current_team))
         self.game.state.active_player = None
         EndTurn(self.game)
+        return True
+
+
+class BlockResolution(Procedure):
+    """Resolve mandatory block effects before scoring or ending the turn."""
+
+    def __init__(self, game):
+        super().__init__(game)
+        self.scorers = ()
+        self.turnover = False
+
+    def step(self, action):
+        for player in self.scorers:
+            if self.game.is_touchdown(player):
+                Touchdown(self.game, player)
+                return True
+        if self.turnover:
+            Turnover(self.game)
         return True
 
 
@@ -4194,6 +4234,12 @@ class Touchdown(Procedure):
         self.handle_bloodlust = self.player == self.game.get_active_player() and self.player.state.blood_lust 
 
     def step(self, action):
+        if self.game.is_season3:
+            for proc in reversed(self.game.state.stack.items):
+                if isinstance(proc, BlockResolution) and not proc.done:
+                    if self.player not in proc.scorers:
+                        proc.scorers += (self.player,)
+                    return True
         if self.handle_bloodlust: 
                 
             if self.eat_thrall is None: 
@@ -4349,6 +4395,10 @@ class Turn(Procedure):
             return False
 
         if self.game.is_season3 and action.action_type == ActionType.START_BLITZ:
+            # May 2026 FAQ: clear Distracted before the action declaration,
+            # including its target-selection decision, rather than afterwards.
+            action.player.state.distracted = False
+            action.player.state.hypnotized = False
             self.blitz_available = False
             BlitzDeclaration(self.game, action.player, self)
             return False
@@ -5117,7 +5167,7 @@ class KickoffSelection(Procedure):
 
     def step(self, action):
         if action is not None and action.action_type == ActionType.SELECT_PLAYER:
-            self.selected.append(action.player)
+            self.selected = self.selected + [action.player]
             if len(self.selected) < min(self.limit, len(self.eligible)):
                 return False
         self.turn.kickoff_players = list(self.selected)
@@ -5167,7 +5217,7 @@ class SolidDefence(Setup):
     def step(self, action):
         if self.selecting:
             if action is not None and action.action_type == ActionType.SELECT_PLAYER:
-                self.selected.append(action.player)
+                self.selected = self.selected + [action.player]
                 if len(self.selected) < min(self.limit, len(self.eligible)):
                     return False
             if not self.selected:
