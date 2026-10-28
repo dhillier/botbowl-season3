@@ -14,11 +14,19 @@ def season3_turn(positions, opponents=None, ball=None, rerolls=0):
     game.ruleset = load_rule_set('BB2025')
     game.config.ruleset = 'BB2025'
     game.current_turn().secure_ball_available = True
+    game.state.drive_active = True
+    for proc in list(game.state.stack.items):
+        if isinstance(proc, Turn) and proc != game.current_turn():
+            game.state.stack.items.remove(proc)  # Discard a pre-scheduled legacy round partner.
+        if isinstance(proc, Half) and proc.kicked_off:
+            proc.next_team = game.get_opp_team(game.state.current_team)
     for team in game.state.teams:
         team.state.rerolls = rerolls
         team.state.reroll_used = False
         for player in team.players:
             player.role = game.ruleset.get_role(player.role.name, 'Human')
+            if player.position is not None and player in game.get_reserves(team):
+                game.get_reserves(team).remove(player)
     game.set_available_actions()
     return game, players
 

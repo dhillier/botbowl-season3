@@ -473,6 +473,11 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
         };
 
         $scope.actionButtonName = function actionButtonName(action_type){
+            if ($scope.game.kickoff_selection && (action_type === "SELECT_NONE" || action_type === "END_SETUP")) {
+                return "Finish selection";
+            }
+            if (action_type === "ARGUE_CALL") { return "Argue the Call"; }
+            if (action_type === "DONT_ARGUE_CALL") { return "Don't argue"; }
             if (action_type === "FOREGO_ACTIVATION") {
                 return "Forego activation";
             }
@@ -1007,7 +1012,7 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
         };
 
         $scope.playerReadyStateClass = function playerStateClass(player){
-            if (player.state.heated || player.state.bone_headed || player.state.hypnotized || player.state.distracted || player.state.used){
+            if (player.state.heated || player.state.snack_absent || player.state.dodgy_snack || player.state.bone_headed || player.state.hypnotized || player.state.distracted || player.state.used){
                 return "secondary";
             } else if (player.state.up){
                 return "success";
@@ -1018,6 +1023,8 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
         };
 
         $scope.playerReadyStateName = function playerReadyStateName(player){
+            if (player.state.snack_absent) { return "Unavailable this drive"; }
+            if (player.state.dodgy_snack) { return "Unwell"; }
             if (player.state.heated){
                 return "Heated";
             } else if (player.state.distracted){
@@ -1195,7 +1202,7 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
                 }
             } else if ($scope.game.stack[$scope.game.stack.length-1] === "Blitz"){
                 if (team != null && team.team_id === $scope.game.state.current_team_id){
-                    return "Blitz!";
+                    return $scope.game.ruleset === "BB2025" ? "Charge!" : "Blitz!";
                 } else if (team == null){
                     if ($scope.game.state.half === 1 && team == null){
                         return "1st half";

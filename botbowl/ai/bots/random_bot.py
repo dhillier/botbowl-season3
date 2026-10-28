@@ -7,6 +7,7 @@ This module contains a random bot that takes random actions.
 """
 import numpy as np
 from botbowl.core.model import Agent, ActionType, Action
+from botbowl.core.procedure import SolidDefence
 from botbowl.ai.registry import register_bot
 
 
@@ -23,6 +24,18 @@ class RandomBot(Agent):
         self.actions_taken = 0
 
     def act(self, game):
+        proc = game.get_procedure()
+        if game.is_season3 and isinstance(proc, SolidDefence) and not proc.selecting:
+            # Ordinary setup uses formation macros. Solid Defence offers only
+            # selected-player placements; restore their legal original squares.
+            if any(a.action_type == ActionType.END_SETUP for a in game.get_available_actions()):
+                action = Action(ActionType.END_SETUP)
+            else:
+                player = next(p for p in proc.selected if p.position != proc.original_positions[p.player_id])
+                action = Action(ActionType.PLACE_PLAYER, player=player,
+                                position=proc.original_positions[player.player_id])
+            self.actions_taken += 1
+            return action
         while True:
             action_choice = self.rnd.choice(game.state.available_actions)
             if action_choice.action_type != ActionType.PLACE_PLAYER:

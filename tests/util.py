@@ -13,6 +13,7 @@ def get_game_turn(seed=0, empty=False, home_team: str = 'human', away_team: str 
     D3.FixedRolls = []
     D6.FixedRolls = []
     D8.FixedRolls = []
+    D16.FixedRolls = []
     BBDie.FixedRolls = []
 
     key = f"{seed} {home_team} {away_team}"
@@ -113,6 +114,7 @@ def get_game_kickoff(seed=0):
     D3.FixedRolls = []
     D6.FixedRolls = []
     D8.FixedRolls = []
+    D16.FixedRolls = []
     BBDie.FixedRolls = []
     config = load_config("gym-11")
     ruleset = load_rule_set(config.ruleset)
@@ -137,6 +139,7 @@ def get_game_setup(home_team, seed=0):
     D3.FixedRolls = []
     D6.FixedRolls = []
     D8.FixedRolls = []
+    D16.FixedRolls = []
     BBDie.FixedRolls = []
     config = load_config("gym-11")
     config.kick_off_table = False
@@ -167,6 +170,7 @@ def get_game_coin_toss(seed=0):
     D3.FixedRolls = []
     D6.FixedRolls = []
     D8.FixedRolls = []
+    D16.FixedRolls = []
     BBDie.FixedRolls = []
     config = load_config("gym-11")
     ruleset = load_rule_set(config.ruleset)
@@ -184,6 +188,7 @@ def get_game_fans(seed=0):
     D3.FixedRolls = []
     D6.FixedRolls = []
     D8.FixedRolls = []
+    D16.FixedRolls = []
     BBDie.FixedRolls = []
     config = load_config("gym-11")
     ruleset = load_rule_set(config.ruleset)
@@ -200,6 +205,7 @@ def get_game_weather_table(seed=0):
     D3.FixedRolls = []
     D6.FixedRolls = []
     D8.FixedRolls = []
+    D16.FixedRolls = []
     BBDie.FixedRolls = []
     config = load_config("gym-11")
     ruleset = load_rule_set(config.ruleset)
@@ -236,7 +242,8 @@ def only_fixed_rolls(game: botbowl.Game,
                      d3: Optional[Iterable[int]] = None,
                      d6: Optional[Iterable[int]] = None,
                      d8: Optional[Iterable[int]] = None,
-                     block_dice: Optional[Iterable[BBDieResult]] = None):
+                     block_dice: Optional[Iterable[BBDieResult]] = None,
+                     d16: Optional[Iterable[int]] = None):
     """
     Context manager that ensures that
       1) There are no fixes and the fixes rolls according to arguments
@@ -252,6 +259,11 @@ def only_fixed_rolls(game: botbowl.Game,
         assert len(botbowl.D8.FixedRolls) == 0, f"There are fixed D8 rolls={botbowl.D8.FixedRolls}"
         assert len(botbowl.BBDie.FixedRolls) == 0, f"There are fixed BBDie rolls={botbowl.BBDie.FixedRolls}"
 
+    if assert_no_prev_fixes:
+        assert not botbowl.D16.FixedRolls
+    if d16 is not None:
+        for roll in d16:
+            botbowl.D16.fix(roll)
     if d3 is not None:
         for roll in d3:
             assert roll in {1, 2, 3}
@@ -276,6 +288,7 @@ def only_fixed_rolls(game: botbowl.Game,
         yield
 
         if assert_fixes_consumed:
+            assert not botbowl.D16.FixedRolls, "Not all fixed D16 rolls were consumed"
             assert len(botbowl.D3.FixedRolls) == 0, "Not all fixed D3 rolls were consumed"
             assert len(botbowl.D6.FixedRolls) == 0, "Not all fixed D6 rolls were consumed"
             assert len(botbowl.D8.FixedRolls) == 0, "Not all fixed D8 rolls were consumed"

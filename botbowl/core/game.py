@@ -74,6 +74,7 @@ class Game:
     def to_json(self, ignore_reports: bool = False):
         return {
             'ruleset': self.ruleset.name,
+            'kickoff_selection': self.get_kickoff_selection(),
             'rules_status': 'migration-preview-incomplete' if self.is_season3 else 'legacy',
             'game_id': self.game_id,
             'start_time': self.start_time,
@@ -92,6 +93,18 @@ class Game:
             'active_other_player_id': self.get_other_active_player_id(),
             'rounds': self.config.rounds,
         }
+
+    def get_kickoff_selection(self):
+        if self.state.stack.is_empty():
+            return None
+        proc = self.get_procedure()
+        if isinstance(proc, KickoffSelection):
+            kind = 'Quick Snap' if proc.turn.quick_snap else 'Charge'
+        elif isinstance(proc, SolidDefence) and proc.selecting:
+            kind = 'Solid Defence'
+        else:
+            return None
+        return {'event': kind, 'limit': proc.limit, 'selected': len(proc.selected)}
 
     @contextmanager
     def hide_agents_and_rng(self): 
@@ -495,7 +508,7 @@ class Game:
             print("-Proc={}".format(self.state.stack.peek()))
 
         # Initialize if not
-        if not self.state.stack.peek().started:
+        while not self.state.stack.peek().started:
             proc = self.state.stack.peek()
             proc.start()
             proc.started = True
@@ -1518,6 +1531,10 @@ class Game:
         :return: True if team is setup legally in the specified tile area.
         """
         min_players_checked = min(min_players, len(self.get_reserves(team)) + len(self.get_players_on_pitch(team)))
+        if self.is_season3:
+            available = [p for p in self.get_reserves(team) + self.get_players_on_pitch(team)
+                         if not p.state.heated and not p.state.snack_absent]
+            min_players_checked = min(self.config.pitch_max if tile is None else min_players, len(available))
         cnt = 0
 
         if tile is None:
@@ -2000,10 +2017,12 @@ class Game:
         if blitz and attacker.has_skill(Skill.HORNS):
             attacker_strength += 1
         attacker_strength += len(self.get_assisting_players(attacker, defender))
+        if self.cheering_assist_available(attacker.team):
+            attacker_strength += 1
         defender_strength += len(self.get_assisting_players(defender, attacker))
         return attacker_strength, defender_strength
 
-    def num_block_dice(self, attacker: Player, defender: Player, blitz: bool = False, dauntless_success: bool = False) -> Optional[int]:
+    def num_block_dice(self, attacker: Player, defender: Player, blitz: bool = False, dauntless_success: bool = False, extra_assists: int = 0) -> Optional[int]:
         """
         :param attacker: 
         :param defender: 
@@ -2011,7 +2030,7 @@ class Game:
         :param dauntless_success: If a dauntless rolls was successful.
         :return: The number of block dice used in a block between the attacker and defender.
         """
-        return self.num_block_dice_at(attacker, defender, attacker.position, blitz, dauntless_success)
+        return self.num_block_dice_at(attacker, defender, attacker.position, blitz, dauntless_success, extra_assists)
 
     def get_block_probs(self, attacker: Player, defender: Player) -> Tuple[float, float, float, float]:
         """
@@ -2178,7 +2197,12 @@ class Game:
             p += (1.0 - p) * p
         return p
 
-    def num_block_dice_at(self, attacker, defender, position: Square, blitz: bool=False, dauntless_success: bool=False):
+    def cheering_assist_available(self, team: Team) -> bool:
+        turn = self.current_turn()
+        return bool(self.is_season3 and team.state.cheering_fans and turn is not None and
+                    turn.team == team and not turn.blitz and not turn.quick_snap)
+
+    def num_block_dice_at(self, attacker, defender, position: Square, blitz: bool=False, dauntless_success: bool=False, extra_assists: int = 0):
         """
         :param attacker:
         :param defender:
@@ -2204,7 +2228,9 @@ class Game:
         # Find assists
         assists_for, assists_against = self.num_assists_at(attacker, defender, position, foul=False)
 
-        st_for = st_for + assists_for
+        st_for = st_for + assists_for + extra_assists
+        if self.cheering_assist_available(attacker.team):
+            st_for += 1
         st_against = st_against + assists_against
 
         # Determine dice and favor

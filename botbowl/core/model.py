@@ -224,6 +224,8 @@ class PlayerState(Reversible):
         self.distracted = False  # Season 3; legacy status aliases remain supported.
         self.really_stupid = False
         self.heated = False
+        self.dodgy_snack = False
+        self.snack_absent = False
         self.knocked_out = False
         self.ejected = False
         self.injuries_gained = []
@@ -249,6 +251,8 @@ class PlayerState(Reversible):
             'distracted': self.distracted,
             'really_stupid': self.really_stupid,
             'heated': self.heated,
+            'dodgy_snack': self.dodgy_snack,
+            'snack_absent': self.snack_absent,
             'ejected': self.ejected,
             'spp_earned': self.spp_earned,
             'moves': self.moves,
@@ -274,6 +278,8 @@ class PlayerState(Reversible):
         self.distracted = False
         self.really_stupid = False
         self.heated = False
+        self.dodgy_snack = False
+        self.snack_absent = False
         self.blood_lust = False
         self.picked_up = False
         self.used_skills.clear()
@@ -386,6 +392,10 @@ class TeamState(Reversible):
         self.ass_coaches = team.ass_coaches
         self.cheerleaders = team.cheerleaders
         self.fame = 0
+        self.fan_factor = 0  # Season 3 game attendance, not legacy FAME.
+        self.drive_rerolls = 0
+        self.cheering_fans = False
+        self.can_argue = True
         self.reroll_used = False
         self.time_violation = 0
 
@@ -402,6 +412,10 @@ class TeamState(Reversible):
             'ass_coaches': self.ass_coaches,
             'cheerleaders': self.cheerleaders,
             'fame': self.fame,
+            'fan_factor': self.fan_factor,
+            'drive_rerolls': self.drive_rerolls,
+            'cheering_fans': self.cheering_fans,
+            'can_argue': self.can_argue,
             'reroll_used': self.reroll_used,
             'time_violation': self.time_violation
         }
@@ -411,6 +425,8 @@ class TeamState(Reversible):
 
     def use_reroll(self):
         self.rerolls -= 1
+        if self.drive_rerolls:
+            self.drive_rerolls -= 1
         self.reroll_used = True
 
     def __hash__(self):
@@ -548,6 +564,7 @@ class GameState(Reversible):
         self.dugouts = {team.team_id: Dugout(team) for team in self.teams}
         self.weather = WeatherType.NICE
         self.gentle_gust = False
+        self.drive_active = False
         self.turn_order = []
         self.spectators = 0
         self.active_player = None
@@ -585,6 +602,7 @@ class GameState(Reversible):
             'game_over': self.game_over,
             'weather': self.weather.name,
             'gentle_gust': self.gentle_gust,
+            'drive_active': self.drive_active,
             'available_actions': [action.to_json() for action in self.available_actions],
             'reports': [report.to_json() for report in self.reports] if not ignore_reports else [],
             'current_team_id': self.current_team.team_id if self.current_team is not None else None,
@@ -759,6 +777,8 @@ class Die(ABC):
             return D6(rng)
         if string == "d8":
             return D8(rng)
+        if string == "d16":
+            return D16(rng)
         if string == "bb":
             return BBDie(rng)
         raise Exception(f"Unknown die {string}")
@@ -978,6 +998,26 @@ class D8(Die, Immutable):
             'die_type': 'D8',
             'result': self.value
         }
+
+
+class D16(Die, Immutable):
+    """Season 3 casualty die. Fixed results also support deterministic scenarios."""
+    FixedRolls = []
+
+    @staticmethod
+    def fix(value):
+        if not 1 <= value <= 16:
+            raise ValueError("Fixed result of D16 must be between 1 and 16")
+        D16.FixedRolls.append(value)
+
+    def __init__(self, rng):
+        self.value = D16.FixedRolls.pop(0) if D16.FixedRolls else rng.randint(1, 17)
+
+    def get_value(self):
+        return self.value
+
+    def to_json(self):
+        return {'die_type': 'D16', 'result': self.value}
 
 
 class BBDie(Die, Immutable):
@@ -1226,12 +1266,12 @@ class Player(Piece, Reversible):
             ma = max(self.role.ma - 2, ma)
             ma = max(1, ma)
             ma = min(9 if self.role.target_characteristics else 10, ma)
-            return ma
+            return max(1, ma - int(self.state.dodgy_snack)) if self.role.target_characteristics else ma
 
     def get_av(self):
         if self.role.target_characteristics:
             injuries = self.injuries.count(CasualtyEffect.AV) + self.state.injuries_gained.count(CasualtyEffect.AV)
-            return max(3, min(11, self.role.av + self.extra_av - injuries))
+            return max(3, min(11, self.role.av + self.extra_av - injuries) - int(self.state.dodgy_snack))
         av = self.role.av + self.extra_av - - self.injuries.count(CasualtyEffect.AV) - self.state.injuries_gained.count(
             CasualtyEffect.AV)
         av = max(self.role.av - 2, av)
@@ -1555,6 +1595,8 @@ class Formation(Immutable):
         players = player_on_pitch
         if not reorganize:
             players += game.get_reserves(team)
+        if game.is_season3:
+            players = [p for p in players if not p.state.heated and not p.state.snack_absent]
 
         positions_used = set()
 

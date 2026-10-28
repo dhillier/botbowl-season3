@@ -64,6 +64,7 @@
                     </div>
                     <div>
                         {{game.state.away_team.name}}
+                        <small ng-if="game.ruleset == 'BB2025'"> · Fans {{game.state.away_team.state.fan_factor}}</small>
                     </div>
                     <div class="rerolls">
                         <div ng-repeat="n in [] | range:8" title="{{ 7-$index < game.state.away_team.state.rerolls ? 'Reroll' : (7-$index < game.state.away_team.state.rerolls_start ? 'Reroll used' : '') }}" class="reroll away {{ 7-$index < game.state.away_team.state.rerolls ? 'notused' : (7-$index < game.state.away_team.state.rerolls_start ? 'used' : 'none') }} {{ (7-$index == game.state.away_team.state.rerolls-1 && game.can_away_team_use_reroll ? 'available' : '') }} "> </div>
@@ -79,7 +80,7 @@
                     </div>
                     <div class="text-center" style="margin-top: -5px;">
                         <div class="team-icons">
-                            <span><img src="static/img/weather/{{game.state.weather.toLowerCase()}}.gif" title="Weather is {{ game.state.weather.toLowerCase().replace('_', ' ')}}" width="20px" height="20px" /></span>
+                            <span><img src="static/img/weather/{{game.state.weather.toLowerCase()}}.gif" title="Weather is {{ game.ruleset == 'BB2025' && game.state.weather == 'NICE' ? 'Perfect Conditions' : game.state.weather.toLowerCase().replace('_', ' ')}}" width="20px" height="20px" /></span>
                         </div>
                     </div>
                 </div>
@@ -94,6 +95,7 @@
                     </div>
                     <div>
                         {{game.state.home_team.name}}
+                        <small ng-if="game.ruleset == 'BB2025'"> · Fans {{game.state.home_team.state.fan_factor}}</small>
                     </div>
                     <div class="rerolls">
                         <div ng-repeat="n in [] | range:8" title="{{ $index < game.state.home_team.state.rerolls ? 'Reroll' : ($index < game.state.home_team.state.rerolls_start ? 'Reroll used' : '') }}" class="reroll home {{ $index < game.state.home_team.state.rerolls ? 'notused' : ($index < game.state.home_team.state.rerolls_start ? 'used' : 'none') }} {{ ($index == game.state.home_team.state.rerolls-1 && game.can_home_team_use_reroll ? 'available' : '') }}"> </div>
@@ -150,6 +152,10 @@
         </div>
 
         <div class="action-bar text-center">
+            <div ng-if="game.kickoff_selection" class="text-info" style="padding-bottom:24px">
+                {{game.kickoff_selection.event}}: select up to {{game.kickoff_selection.limit}} Open players
+                ({{game.kickoff_selection.selected}} selected), then finish selection.
+            </div>
             <span ng-if="replaying">
 
                 <button type="button" class="btn btn-sm btn-default" ng-click="prevStep(action)" ng-disabled="replayStep == 0">
@@ -460,7 +466,7 @@
                 <div ng-repeat="report in game.state.reports | reverse | limitTo:reportsLimit" ng-if="showReport(report)" class="report">
                     <div ng-repeat="roll in report.rolls | reverse" class="roll">
                         <span ng-repeat="die in roll.dice" class="die {{die.die_type == 'BB' ? die.die_type+'-'+die.result.toLowerCase() : die.die_type+'-'+die.result }}">
-
+                            <span ng-if="die.die_type == 'D16'" title="D16">{{die.result}}</span>
                         </span>
                         <span ng-if="roll.modified_target != null" class="modifiers {{ roll.sum >= roll.modified_target ? 'success' : 'danger' }}">
                             {{roll.target_higher ? '(' + roll.modified_target + '+)' : '' }}

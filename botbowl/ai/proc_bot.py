@@ -35,7 +35,12 @@ class ProcBot(Agent):
             else:
                 action = self.setup(game)
         elif isinstance(proc, Ejection):
-            action = self.use_bribe(game)
+            if game.is_season3 and any(a.action_type == ActionType.ARGUE_CALL for a in game.get_available_actions()):
+                action = Action(ActionType.ARGUE_CALL)
+            else:
+                action = self.use_bribe(game)
+        elif isinstance(proc, KickoffSelection):
+            action = Action(ActionType.SELECT_NONE)
         elif isinstance(proc, Reroll):
             if proc.can_use_pro:
                 action = self.use_pro(game)
@@ -46,7 +51,10 @@ class ProcBot(Agent):
         elif isinstance(proc, HighKick):
             action = self.high_kick(game)
         elif isinstance(proc, Touchback):
-            action = self.touchback(game)
+            if game.is_season3 and game.get_available_actions()[0].action_type == ActionType.PLACE_BALL:
+                action = Action(ActionType.PLACE_BALL, position=game.get_available_actions()[0].positions[0])
+            else:
+                action = self.touchback(game)
         elif isinstance(proc, Turn) and proc.quick_snap:
             action = self.quick_snap(game)
         elif isinstance(proc, Turn) and proc.blitz:
@@ -84,7 +92,11 @@ class ProcBot(Agent):
         elif isinstance(proc, FollowUp):
             action = self.follow_up(game)
         elif isinstance(proc, Apothecary):
-            action = self.apothecary(game)
+            if game.is_season3 and proc.waiting_apothecary:
+                action = Action(ActionType.SELECT_FIRST_ROLL if proc.effect_first.value <= proc.effect_second.value
+                                else ActionType.SELECT_SECOND_ROLL)
+            else:
+                action = self.apothecary(game)
         elif isinstance(proc, Interception):
             action = self.interception(game)
         elif isinstance(proc, BlitzDeclaration):

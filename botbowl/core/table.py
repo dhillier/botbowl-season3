@@ -70,6 +70,8 @@ class RollType(Enum):
     SECURE_BALL_ROLL = 36  # A fixed 2+ roll, not an Agility test.
     JUMP_ROLL = 37
     STALLING_ROLL = 38
+    DODGY_SNACK_ROLL = 39
+    ARGUE_CALL_ROLL = 40
 
 
 class OutcomeType(Enum):
@@ -81,6 +83,23 @@ class OutcomeType(Enum):
     FOREGO_ACTIVATION = 1006
     CROWD_TAKES_ACTION = 1007
     CROWD_MISSES = 1008
+    KICKOFF_TIME_OUT = 1009
+    KICKOFF_SOLID_DEFENCE = 1010
+    KICKOFF_CHARGE = 1011
+    KICKOFF_DODGY_SNACK = 1012
+    DODGY_SNACK = 1013
+    SNACK_PLAYER_REMOVED = 1014
+    CHEERING_ASSIST = 1015
+    DRIVE_ENDED = 1016
+    KICKOFF_PLAYERS_SELECTED = 1017
+    ARGUE_CALL_SUCCESS = 1018
+    ARGUE_CALL_FAILED = 1019
+    COACH_EJECTED = 1020
+    CASUALTY_RESULT = 1021
+    KICKER_NOMINATED = 1022
+    CHEERING_ASSIST_USED = 1023
+    CHARGE_START = 1024
+    END_OF_CHARGE = 1025
     HEADS_WON = 1
     HEADS_LOSS = 2
     WEATHER_SWELTERING_HEAT = 3
@@ -298,6 +317,14 @@ class CasualtyEffect(Enum):
     DEAD = 8
 
 
+class Season3CasualtyType(Enum):
+    BADLY_HURT = 8
+    SERIOUSLY_HURT = 10
+    SERIOUS_INJURY = 12
+    LASTING_INJURY = 14
+    DEAD = 16
+
+
 class CasualtyType(Enum):
     """
     D68 Result Effect
@@ -400,6 +427,8 @@ class ActionType(Enum):
     START_SECURE_BALL = 67
     JUMP = 68
     FOREGO_ACTIVATION = 69
+    ARGUE_CALL = 70
+    DONT_ARGUE_CALL = 71
 
 
 class WeatherType(Enum):
