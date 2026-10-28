@@ -2,39 +2,56 @@ name: Python package
 
 on: [pull_request]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: python-package-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
-
-    runs-on: ubuntu-latest
+    # The inherited dependency pins support Python 3.8–3.11. Ubuntu 22.04
+    # has downloadable interpreters for every version in this matrix.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
     strategy:
+      fail-fast: false
       max-parallel: 4
       matrix:
-        python-version: [3.8, 3.9, '3.10', '3.11']
+        python-version: ['3.8', '3.9', '3.10', '3.11']
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      with:
+        persist-credentials: false
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
       with:
         python-version: ${{ matrix.python-version }}
+        cache: pip
+        cache-dependency-path: |
+          requirements.txt
+          setup.py
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -e .
-        python setup.py install
+        python -m pip install --upgrade pip 'setuptools==68.2.2' 'wheel==0.41.3'
+        python -m pip install -r requirements.txt 'flake8==7.1.2'
+        python -m pip install --no-build-isolation -e .
+        python -m pip check
+
+    - name: Verify compiled pathfinder
+      run: python -c "from botbowl.core.pathfinding import cython_pathfinding; print(cython_pathfinding.__file__)"
 
     - name: Lint with flake8
-      run: |
-        pip install flake8
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      # Retain the inherited fatal-error gate without flooding logs with the
+      # upstream repository's pre-existing advisory style warnings.
+      run: python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    - name: Check web bundle
+      run: python scripts/build_web_js.py --check
 
     - name: Test with pytest
-      run: |
-        pip install pytest
-        pytest
+      run: python -m pytest -q

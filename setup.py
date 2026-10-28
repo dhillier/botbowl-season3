@@ -53,7 +53,7 @@ install_requires_packages = [
           'docker==6.1.1',
           'python-interface==1.6.1',
           'stopit==1.1.2',
-          'requests==2.30.0',
+          'requests==2.31.0',
           'Cython==3.0.0b2',
           'pytest==7.3.1',
           'matplotlib==3.7.1',
