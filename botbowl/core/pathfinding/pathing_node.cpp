@@ -102,6 +102,12 @@ namespace node_ns {
         foul_roll = target;
         can_foul = false;
     }
+    // Modified for Season 3 jumping, October 2026.
+    void Node::apply_jump(int target){
+        rolls.push_back(target);
+        _apply_roll((7.0-target)/6.0, NO_SKILL_REROLL, TRR);
+    }
+
     void Node::apply_stand_up(int target){
         rolls.push_back(target);
         _apply_roll((7.0-target)/6.0, NO_SKILL_REROLL, TRR);

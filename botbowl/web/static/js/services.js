@@ -1,5 +1,5 @@
 
-// Modified for the Season 3 Secure the Ball action log, October 2026.
+// Modified for Season 3 action logs, October 2026.
 appServices.factory('GameService', function($http) {
     return {
         get: function(id) {
@@ -178,6 +178,10 @@ appServices.factory('GameLogService', function() {
             'END_PLAYER_TURN': "<players> turn is over.",
             'MOVE_ACTION_STARTED': "<player> starts a movement action.",
             'SECURE_BALL_ACTION_STARTED': "<player> starts a Secure the Ball action.",
+            'BLITZ_DECLARATION_STARTED': "<player> is declaring a Blitz. Choose its target.",
+            'BLITZ_TARGET_DECLARED': "<player> declares a Blitz against <opp_player>.",
+            'SUCCESSFUL_JUMP': "<player> successfully jumps over a downed player.",
+            'FAILED_JUMP': "<player> fails to jump over a downed player.",
             'BLOCK_ACTION_STARTED': "<player> starts a block action.",
             'BLITZ_ACTION_STARTED': "<player> starts a blitz action.",
             'PASS_ACTION_STARTED': "<player> starts a pass action.",

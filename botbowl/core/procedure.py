@@ -1698,6 +1698,50 @@ class KnockOut(Procedure):
         return True
 
 
+class Jump(Procedure):
+    """Season 3 jump: Rushes first; a natural 1 falls at take-off."""
+
+    def __init__(self, game, player, position, gfis):
+        super().__init__(game)
+        self.player = player
+        self.position = position
+        self.origin = player.position
+        self.roll = None
+        self.reroll = None
+        for _ in range(gfis):
+            GFI(game, player, self.origin)
+
+    def step(self, action):
+        if self.roll is None:
+            self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.JUMP_ROLL)
+            self.roll.target = self.player.get_ag_target()
+            self.roll.modifiers = self.game.get_jump_modifiers(self.player, self.origin, self.position)
+            if self.roll.is_d6_success():
+                self.game.move(self.player, self.position)
+                self.game.report(Outcome(OutcomeType.SUCCESSFUL_JUMP, player=self.player, rolls=[self.roll]))
+                ball = self.game.get_ball_at(self.position)
+                if ball is not None and not ball.is_carried:
+                    if self.player.has_skill(Skill.NO_HANDS):
+                        Bounce(self.game, ball)
+                    else:
+                        Pickup(self.game, ball, self.player,
+                               secure=self.game.state.player_action_type == PlayerActionType.SECURE_BALL)
+                elif self.game.has_ball(self.player) and self.game.is_touchdown(self.player):
+                    Touchdown(self.game, self.player)
+                return True
+            self.game.report(Outcome(OutcomeType.FAILED_JUMP, player=self.player, rolls=[self.roll]))
+            self.reroll = Reroll(self.game, self.player, self)
+            return False
+        if self.reroll.use_reroll:
+            self.roll = None
+            self.reroll = None
+            return False
+        if self.roll.get_sum() != 1:
+            self.game.move(self.player, self.position)
+        KnockDown(self.game, self.player, turnover=True)
+        return True
+
+
 class Leap(Procedure):
 
     def __init__(self, game, player, position, gfis):
@@ -2697,7 +2741,8 @@ class MoveAction(Procedure):
             if pos == self.player.position:
                 action = Action(ActionType.STAND_UP)
             else:
-                action = Action(ActionType.MOVE, position=pos)
+                action_type = ActionType.JUMP if self.game.is_season3 and pos.distance(self.player.position) == 2 else ActionType.MOVE
+                action = Action(action_type, position=pos)
 
         if action.action_type == ActionType.UNDO:
             UndoPlayerAction(self.game, self.player)
@@ -2728,6 +2773,15 @@ class MoveAction(Procedure):
             Leap(self.game, self.player, action.position, gfis)
             self.player.state.squares_moved.append(action.position)
             self.player.state.moves += distance
+            return False
+
+        if action.action_type == ActionType.JUMP:
+            if self.steps is not None and not self.steps:
+                self.steps = None
+            rushes = max(0, 2 - self.player.num_moves_left())
+            Jump(self.game, self.player, action.position, rushes)
+            self.player.state.squares_moved.append(action.position)
+            self.player.state.moves += 2
             return False
 
         if action.action_type == ActionType.HYPNOTIC_GAZE and self.player_action_type == PlayerActionType.MOVE:
@@ -2826,12 +2880,14 @@ class MoveAction(Procedure):
                                     can_handoff=can_handoff,
                                     can_foul=can_foul,
                                     secure_ball=self.player_action_type == PlayerActionType.SECURE_BALL,
+                                    blitz_target=self.defender if isinstance(self, BlitzAction) else None,
                                     trr=False)
             paths = pathfinder.get_paths()
             self.paths = {path.get_last_step(): path for path in paths}
             actions += self._get_actions_from_paths(paths)
         actions += self.game.get_stand_up_actions(self.player)
         actions += self.game.get_leap_actions(self.player)
+        actions += self.game.get_jump_actions(self.player)
         if self.player.has_skill(Skill.HYPNOTIC_GAZE) and self.player_action_type == PlayerActionType.MOVE:
             actions += self.game.get_hypnotic_gaze_actions(self.player)
         actions.append(ActionChoice(ActionType.END_PLAYER_TURN, team=self.player.team))
@@ -3136,17 +3192,41 @@ class BlockAction(Procedure):
         return actions
 
 
+class BlitzDeclaration(Procedure):
+    """Complete the target declaration before any activation trait is rolled."""
+
+    def __init__(self, game, player, turn):
+        super().__init__(game)
+        self.player = player
+        self.turn = turn
+        self.targets = game.get_blitz_targets(player)
+
+    def start(self):
+        self.game.report(Outcome(OutcomeType.BLITZ_DECLARATION_STARTED, player=self.player))
+
+    def step(self, action):
+        self.game.report(Outcome(OutcomeType.BLITZ_TARGET_DECLARED, player=self.player, opp_player=action.player))
+        self.turn._start_player_action(Action(ActionType.START_BLITZ, player=self.player), blitz_target=action.player)
+        return True
+
+    def available_actions(self):
+        return [ActionChoice(ActionType.SELECT_PLAYER, team=self.player.team, players=self.targets)]
+
+
 class BlitzAction(MoveAction):
 
-    def __init__(self, game, player):
+    def __init__(self, game, player, defender=None):
         super().__init__(game, player, player_action_type=PlayerActionType.BLITZ)
         self.player = player
+        self.defender = defender
 
     def start(self):
         self.game.report(Outcome(OutcomeType.BLITZ_ACTION_STARTED, player=self.player))
         self.game.state.player_action_type = PlayerActionType.BLITZ
         self.game.use_blitz_action()
         super().start()
+        if self.game.is_season3:
+            self.can_undo = False
 
     def step(self, action):
 
@@ -3210,7 +3290,7 @@ class BlitzAction(MoveAction):
         actions = super().available_actions()
         # Else find them for this square
         if not self.game.config.pathfinding_enabled:
-            actions += self.game.get_block_actions(self.player, blitz=True)
+            actions += self.game.get_block_actions(self.player, blitz=True, target=self.defender)
         return actions
 
 
@@ -3965,6 +4045,13 @@ class Turn(Procedure):
             
             return True
 
+        if self.game.is_season3 and action.action_type == ActionType.START_BLITZ:
+            self.blitz_available = False
+            BlitzDeclaration(self.game, action.player, self)
+            return False
+        return self._start_player_action(action)
+
+    def _start_player_action(self, action, blitz_target=None):
         action.player.state.hypnotized = False
         if self.game.is_season3:
             action.player.state.distracted = False
@@ -3982,7 +4069,7 @@ class Turn(Procedure):
 
         # Start blitz action
         if action.action_type == ActionType.START_BLITZ:
-            BlitzAction(self.game, action.player)
+            BlitzAction(self.game, action.player, defender=blitz_target)
 
         # Start foul action
         if action.action_type == ActionType.START_FOUL:
@@ -4033,7 +4120,8 @@ class Turn(Procedure):
                 if not player.state.taken_root:
                     move_players.append(player)
                 if self.blitz_available and not player.state.taken_root:
-                    blitz_players.append(player)
+                    if not self.game.is_season3 or self.game.get_blitz_targets(player):
+                        blitz_players.append(player)
                 if self.pass_available:
                     if not player.state.taken_root or self.game.get_ball_carrier() == player:
                         pass_players.append(player)

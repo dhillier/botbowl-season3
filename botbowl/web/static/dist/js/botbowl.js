@@ -56,7 +56,7 @@ app.config(['$locationProvider', '$routeProvider',
 
 
 
-// Modified for the Season 3 Secure the Ball action, October 2026.
+// Modified for Season 3 action controls, October 2026.
 appControllers.controller('GameListCtrl', ['$scope', '$window', 'GameService', 'ReplayService',
     function GameListCtrl($scope, $window, GameService, ReplayService) {
         $scope.games = [];
@@ -594,10 +594,10 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
                         } else if (action.action_type === "MOVE"){
                             $scope.available_move_positions = action.positions;
                             $scope.available_dodge_rolls = action.rolls;
-                        } else if (action.action_type === "LEAP") {
-                            $scope.special_actions.push("LEAP");
-                            $scope.special_rolls["LEAP"] = action.rolls;
-                            $scope.special_positions["LEAP"] = action.positions;
+                        } else if (action.action_type === "LEAP" || action.action_type === "JUMP") {
+                            $scope.special_actions.push(action.action_type);
+                            $scope.special_rolls[action.action_type] = action.rolls;
+                            $scope.special_positions[action.action_type] = action.positions;
                         } else if (action.action_type === "STAB"){
                             $scope.special_actions.push("STAB");
                             $scope.special_rolls["STAB"] = action.rolls;
@@ -1652,7 +1652,7 @@ app.filter('reverse', function() {
   };
 });
 
-// Modified for the Season 3 Secure the Ball action log, October 2026.
+// Modified for Season 3 action logs, October 2026.
 appServices.factory('GameService', function($http) {
     return {
         get: function(id) {
@@ -1831,6 +1831,10 @@ appServices.factory('GameLogService', function() {
             'END_PLAYER_TURN': "<players> turn is over.",
             'MOVE_ACTION_STARTED': "<player> starts a movement action.",
             'SECURE_BALL_ACTION_STARTED': "<player> starts a Secure the Ball action.",
+            'BLITZ_DECLARATION_STARTED': "<player> is declaring a Blitz. Choose its target.",
+            'BLITZ_TARGET_DECLARED': "<player> declares a Blitz against <opp_player>.",
+            'SUCCESSFUL_JUMP': "<player> successfully jumps over a downed player.",
+            'FAILED_JUMP': "<player> fails to jump over a downed player.",
             'BLOCK_ACTION_STARTED': "<player> starts a block action.",
             'BLITZ_ACTION_STARTED': "<player> starts a blitz action.",
             'PASS_ACTION_STARTED': "<player> starts a pass action.",

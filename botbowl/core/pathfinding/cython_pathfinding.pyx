@@ -134,6 +134,7 @@ cdef Path create_path(NodePtr node):
 
 cdef class Pathfinder:
     cdef public object game, player, players_on_pitch
+    cdef object blitz_target, jump_positions
     cdef bint trr, can_block, can_handoff, can_foul, target_found, target_is_int, target_is_square, has_target, directly_to_adjacent, is_stunty, carries_ball, secure_ball
     cdef int ma, gfis, dodge_target, pitch_width, pitch_height, endzone_x, gfi_target
     cdef double current_prob
@@ -152,7 +153,7 @@ cdef class Pathfinder:
                 self.locked_nodes[i][j].reset()
                 self.nodes[i][j].reset()
 
-    def __init__(self, game, player, trr=False, directly_to_adjacent=False, can_block=False, can_handoff=False, can_foul=False, secure_ball=False):
+    def __init__(self, game, player, trr=False, directly_to_adjacent=False, can_block=False, can_handoff=False, can_foul=False, secure_ball=False, blitz_target=None):
 
         self.players_on_pitch = game.state.pitch.board
 
@@ -180,6 +181,8 @@ cdef class Pathfinder:
         self.can_handoff = can_handoff
         self.can_foul = can_foul
         self.secure_ball = secure_ball
+        self.blitz_target = blitz_target
+        self.jump_positions = {}
         self.is_stunty = player.has_skill(table.Skill.STUNTY)
         self.directly_to_adjacent = directly_to_adjacent
         self.dodge_target = self.player.get_ag_target() - (0 if self.game.is_season3 else 1)
@@ -264,6 +267,7 @@ cdef class Pathfinder:
         cdef double rounded_p
         cdef Node * parent = <Node *> node.get().parent.get()
         cdef Square to_square
+        cdef object key, landing, landings
 
         if node.get().parent.use_count() == 0 or node.get().parent.get().position == node.get().position:
             parent = NULL
@@ -297,7 +301,7 @@ cdef class Pathfinder:
             return
 
         for direction in DIRECTIONS:
-            if parent is not NULL:
+            if parent is not NULL and parent.position.distance(node.get().position) == 1:
                 to_square = direction + node.get().position
 
                 # stop if going back to parent position
@@ -321,6 +325,23 @@ cdef class Pathfinder:
                 self.open_set.push(next_node)
                 self.nodes[next_node.get().position.y][next_node.get().position.x] = next_node
 
+        if self.game.is_season3 and node.get().moves_left + node.get().gfis_left >= 2:
+            key = (node.get().position.x, node.get().position.y)
+            landings = self.jump_positions.get(key)
+            if landings is None:
+                landings = self.game.get_jump_positions(self.player, to_botbowl_Square(node.get().position))
+                self.jump_positions[key] = landings
+            for landing in landings:
+                next_node = self._expand_jump_node(node, from_botbowl_Square(landing))
+                if next_node.use_count() == 0:
+                    continue
+                rounded_p = next_node.get().prob
+                if rounded_p < self.current_prob:
+                    self.risky_sets[rounded_p].push_back(next_node)
+                else:
+                    self.open_set.push(next_node)
+                    self.nodes[landing.y][landing.x] = next_node
+
     cdef NodePtr _expand_node(self, NodePtr node, Square direction, bint out_of_moves):
         cdef:
             double euclidean_distance
@@ -335,7 +356,8 @@ cdef class Pathfinder:
         if player_at is not None:
             if node.get().can_handoff and player_at.team == self.player.team and player_at.can_catch():
                 return self._expand_handoff_node(node, to_pos)
-            elif node.get().can_block and player_at.team != self.player.team and player_at.state.up:
+            elif (node.get().can_block and player_at.team != self.player.team and player_at.state.up and
+                  (self.blitz_target is None or player_at == self.blitz_target)):
                 return self._expand_block_node(node, euclidean_distance, to_pos, player_at)
             elif node.get().can_foul and player_at.team != self.player.team and not player_at.state.up:
                 return self._expand_foul_node(node, to_pos, player_at)
@@ -372,6 +394,27 @@ cdef class Pathfinder:
             target = self._get_pickup_target(to_pos)
             next_node.get().apply_pickup(target)
         if best_before.use_count()>0 and self._dominant(next_node, best_before) == best_before:
+            return NodePtr()
+        return next_node
+
+    cdef NodePtr _expand_jump_node(self, NodePtr node, Square to_pos):
+        cdef int rushes = max(0, 2 - node.get().moves_left)
+        cdef int marking, target
+        cdef NodePtr best, next_node
+        next_node = make_shared[Node](node, to_pos, max(0, node.get().moves_left - 2),
+                                     node.get().gfis_left - rushes, node.get().euclidean_distance + 2)
+        for _ in range(rushes):
+            next_node.get().apply_gfi(self.gfi_target)
+        marking = max(self.tzones[node.get().position.y][node.get().position.x], self.tzones[to_pos.y][to_pos.x])
+        target = min(6, max(2, self.player.get_ag_target() + marking))
+        next_node.get().apply_jump(target)
+        if to_pos == self.ball_pos:
+            next_node.get().apply_pickup(self._get_pickup_target(to_pos))
+        best = self.nodes[to_pos.y][to_pos.x]
+        if best.use_count() > 0 and self._dominant(next_node, best) == best:
+            return NodePtr()
+        best = self.locked_nodes[to_pos.y][to_pos.x]
+        if best.use_count() > 0 and self._dominant(next_node, best) == best:
             return NodePtr()
         return next_node
 

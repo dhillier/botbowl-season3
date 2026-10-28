@@ -64,6 +64,7 @@ namespace node_ns {
             void apply_handoff(int target);
             void apply_foul(int target);
             void apply_stand_up(int target);
+            void apply_jump(int target); // Season 3: no Dodge skill re-roll.
     };
 
     //const node_ptr & dominant_node(const node_ptr &, const node_ptr &, const Square &);

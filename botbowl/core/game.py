@@ -7,6 +7,7 @@ This module contains the Game class, which is the main class and interface used 
 Modified for Season 3 tests, probabilities, and re-roll eligibility, October 2026.
 """
 from contextlib import contextmanager
+from collections import deque
 import itertools
 
 from botbowl.core.load import *
@@ -918,6 +919,48 @@ class Game:
             return turn.blitz_available
         return False
 
+    def get_blitz_targets(self, player: Player) -> List[Player]:
+        """Reachable standing targets, allowing stand-up, Rushes and jumps.
+
+        This is a reachability search, not a probability estimate. A successful
+        pickup may be followed by more movement; scoring ends that route.
+        Reserve one movement point for the Block part of the Blitz.
+        """
+        if player.position is None or player.state.used or player.state.stunned or player.state.taken_root:
+            return []
+        budget = player.num_moves_left(include_gfi=True)
+        if not player.state.up:
+            budget -= 0 if player.has_skill(Skill.JUMP_UP) else min(3, player.num_moves_left())
+        ball = self.get_ball()
+        carries = self.has_ball(player)
+        queue = deque([(player.position, budget, carries)])
+        best = {(player.position, carries): budget}
+        targets = set()
+        jump_cache = {}
+        while queue:
+            square, left, carrying = queue.popleft()
+            if left < 1 or (carrying and square.x == self.get_opp_endzone_x(player.team)):
+                continue
+            neighbors = self.get_adjacent_squares(square)
+            for destination in neighbors:
+                opponent = self.get_player_at(destination)
+                if opponent is not None and opponent.team != player.team and opponent.state.up:
+                    targets.add(opponent)
+            if square not in jump_cache:
+                jump_cache[square] = self.get_jump_positions(player, square)
+            edges = [(s, 1) for s in neighbors if self.get_player_at(s) is None]
+            edges += [(s, 2) for s in jump_cache[square]]
+            for destination, cost in edges:
+                remaining = left - cost
+                if remaining < 1:  # Need a point left to perform the Block.
+                    continue
+                has_ball = carrying or (ball is not None and ball.on_ground and not ball.is_carried and ball.position == destination)
+                key = destination, has_ball
+                if best.get(key, -1) < remaining:
+                    best[key] = remaining
+                    queue.append((destination, remaining, has_ball))
+        return sorted(targets, key=lambda p: p.nr)
+
     def use_blitz_action(self) -> None:
         """
         Uses this turn's blitz action.
@@ -1589,6 +1632,8 @@ class Game:
         Returns the player id of the other player involved in current procedures - if any.
         """
         for proc in self.state.stack.items:
+            if isinstance(proc, BlitzAction) and proc.defender is not None:
+                return proc.defender.player_id
             if isinstance(proc, Block):
                 if proc.defender is not None:
                     return proc.defender.player_id
@@ -2478,6 +2523,8 @@ class Game:
         return []
 
     def get_adjacent_move_actions(self, player: Player, secure_ball: bool = False) -> List[ActionChoice]:
+        if self.is_season3 and not player.state.up:
+            return []  # Stand up before moving; pathfinding can include that step.
         quick_snap = self.is_quick_snap()
         actions = []
         move_positions = []
@@ -2542,6 +2589,43 @@ class Game:
                                             positions=leap_positions, rolls=leap_rolls))
         return actions
 
+    def get_jump_positions(self, player: Player, from_position: Optional[Square] = None) -> List[Square]:
+        """Geometry shared by action generation, reachability and pathfinding."""
+        if not self.is_season3:
+            return []
+        origin = player.position if from_position is None else from_position
+        destinations = set()
+        for downed in self.get_adjacent_players(origin):
+            if downed == player:
+                continue  # Pathfinding must not jump over the mover's old square.
+            if downed.state.up and not downed.state.stunned:
+                continue
+            for landing in self.get_adjacent_squares(downed.position, occupied=False):
+                if origin.distance(landing) == 2:
+                    destinations.add(landing)
+        return sorted(destinations, key=lambda s: (s.y, s.x))
+
+    def get_jump_modifiers(self, player: Player, origin: Square, destination: Square) -> int:
+        return -max(self.num_tackle_zones_at(player, origin), self.num_tackle_zones_at(player, destination))
+
+    def get_jump_actions(self, player: Player) -> List[ActionChoice]:
+        if (not self.is_season3 or self.is_quick_snap() or not player.state.up or
+                player.num_moves_left(include_gfi=True) < 2):
+            return []
+        positions = self.get_jump_positions(player)
+        rushes = max(0, 2 - player.num_moves_left())
+        rush_target = 3 if self.state.weather == WeatherType.BLIZZARD else 2
+        rolls = []
+        for position in positions:
+            target = min(6, max(2, player.get_ag_target() - self.get_jump_modifiers(player, player.position, position)))
+            tests = [rush_target] * rushes + [target]
+            ball = self.get_ball_at(position)
+            if ball is not None and ball.on_ground and not ball.is_carried:
+                tests.append(2 if self.state.player_action_type == PlayerActionType.SECURE_BALL else
+                             min(6, max(2, player.get_ag_target() - self.get_pickup_modifiers(player, position))))
+            rolls.append(tests)
+        return [ActionChoice(ActionType.JUMP, team=player.team, positions=positions, rolls=rolls)] if positions else []
+
     def get_foul_actions(self, player: Player) -> List[ActionChoice]:
         """
         :param player: Fouling player
@@ -2573,7 +2657,7 @@ class Game:
                                         positions=positions, rolls=d6_rolls))
         return actions
 
-    def get_block_actions(self, player: Player, blitz = False) -> List[ActionChoice]:
+    def get_block_actions(self, player: Player, blitz = False, target: Optional[Player] = None) -> List[ActionChoice]:
 
         if player.state.has_blocked:
             return []
@@ -2604,6 +2688,8 @@ class Game:
         block_dice = []
         stab_rolls = []
         for player_to in self.get_adjacent_opponents(player, down=False):
+            if target is not None and player_to != target:
+                continue
             block_positions.append(player_to.position)
             dice = self.num_block_dice(attacker=player, defender=player_to,
                                        blitz=blitz,

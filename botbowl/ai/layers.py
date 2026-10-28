@@ -4,6 +4,7 @@ Author: Niels Justesen
 Year: 2018
 ==========================
 This module contains the feature layers used by the gym implementation.
+Modified for declared Season 3 Blitz targets, October 2026.
 """
 
 from botbowl.core.procedure import *
@@ -184,6 +185,9 @@ class TargetPlayerLayer(FeatureLayer):
         target = None
         for i in reversed(range(game.state.stack.size())):
             proc = game.state.stack.items[i]
+            if isinstance(proc, BlitzAction):
+                target = proc.defender
+                break
             if isinstance(proc, Block):
                 target = proc.defender
                 break

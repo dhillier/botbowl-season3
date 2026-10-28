@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Modified for Season 3 Secure the Ball planning, October 2026.
+# Modified for Season 3 action planning and jumping, October 2026.
 from typing import List
 
 import botbowl
@@ -422,6 +422,8 @@ class MyScriptedBot(ProcBot):
                             best_blitz_path = path
             if best_blitz_attacker is not None and best_blitz_score >= 1.25:
                 self.actions.append(Action(ActionType.START_BLITZ, player=best_blitz_attacker))
+                if game.is_season3:
+                    self.actions.append(Action(ActionType.SELECT_PLAYER, player=best_blitz_defender))
                 self.actions.extend(path_to_move_actions(game, best_blitz_attacker, best_blitz_path))
                 #print(f"Blitz with {best_blitz_attacker.role.name}, score={best_blitz_score}")
                 return
@@ -533,6 +535,14 @@ class MyScriptedBot(ProcBot):
 
     def quick_snap(self, game):
         return Action(ActionType.END_TURN)
+
+    def blitz_target(self, game):
+        if self.actions and self.actions[0].action_type == ActionType.SELECT_PLAYER:
+            action = self._get_next_action()
+            if game._is_action_allowed(action):
+                return action
+        self.actions.clear()
+        return super().blitz_target(game)
 
     def blitz(self, game):
         return Action(ActionType.END_TURN)
@@ -762,12 +772,16 @@ def path_to_move_actions(game: botbowl.Game, player: botbowl.Player, path: Path,
         return [final_action]
     else:
         actions = []
-        if not player.state.up and path.steps[0] == player.position:
-            actions.append(Action(ActionType.STAND_UP, player=player))
-            actions.extend(Action(ActionType.MOVE, position=sq) for sq in path.steps[1:-1])
-        else:
-            actions.extend(Action(ActionType.MOVE, position=sq) for sq in path.steps[:-1])
-        actions.append(final_action)
+        previous = player.position
+        for i, square in enumerate(path.steps):
+            if i == 0 and not player.state.up and square == previous:
+                actions.append(Action(ActionType.STAND_UP, player=player))
+            elif i == len(path.steps) - 1 and action_type != ActionType.MOVE:
+                actions.append(final_action)
+            else:
+                kind = ActionType.JUMP if game.is_season3 and previous.distance(square) == 2 else ActionType.MOVE
+                actions.append(Action(kind, position=square))
+            previous = square
         return actions
 
 

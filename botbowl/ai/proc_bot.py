@@ -4,6 +4,7 @@ Author: Niels Justesen
 Year: 2018
 ==========================
 This module contains an example bot that takes random actions.
+Modified for the Season 3 Blitz declaration decision, October 2026.
 """
 from botbowl.core.model import Agent, Action
 from botbowl.core.game import Game, InvalidActionError
@@ -86,6 +87,8 @@ class ProcBot(Agent):
             action = self.apothecary(game)
         elif isinstance(proc, Interception):
             action = self.interception(game)
+        elif isinstance(proc, BlitzDeclaration):
+            action = self.blitz_target(game)
         elif isinstance(proc, BloodLustBlockOrMove):
             action = self.blood_lust_block_or_move(game)
         elif isinstance(proc, EatThrall):
@@ -104,6 +107,10 @@ class ProcBot(Agent):
             return new_action
 
         return action
+
+    def blitz_target(self, game):
+        """Default for Season 3 clients that have not added target planning yet."""
+        return Action(ActionType.SELECT_PLAYER, player=game.get_available_actions()[0].players[0])
 
     def use_pro(self, game):
         raise NotImplementedError("This method must be overridden by non-human subclasses")

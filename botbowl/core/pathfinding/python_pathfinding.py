@@ -188,6 +188,10 @@ class Node:
         self.rolls.append(target)
         self._apply_roll((7 - target) / 6, None, self.TRR)
 
+    def apply_jump(self, target):
+        self.rolls.append(target)
+        self._apply_roll((7 - target) / 6, None, self.TRR)
+
 
 class Pathfinder:
 
@@ -200,7 +204,7 @@ class Pathfinder:
                   Square(1, 0),
                   Square(1, 1)]
 
-    def __init__(self, game, player, trr=False, directly_to_adjacent=False, can_block=False, can_handoff=False, can_foul=False, secure_ball=False):
+    def __init__(self, game, player, trr=False, directly_to_adjacent=False, can_block=False, can_handoff=False, can_foul=False, secure_ball=False, blitz_target=None):
         self.game = game
         self.player = player
         self.trr = trr
@@ -209,6 +213,8 @@ class Pathfinder:
         self.can_handoff = can_handoff
         self.can_foul = can_foul
         self.secure_ball = secure_ball
+        self.blitz_target = blitz_target
+        self.jump_positions = {}
         self.carries_ball = None
         self.endzone_x = None
         self.ball_position = None
@@ -351,6 +357,20 @@ class Pathfinder:
                 self.open_set.put((next_node.euclidean_distance, next_node))
                 self.nodes[next_node.position.y][next_node.position.x] = next_node
 
+        if self.game.is_season3 and node.moves_left + node.gfis_left >= 2:
+            if node.position not in self.jump_positions:
+                self.jump_positions[node.position] = self.game.get_jump_positions(self.player, node.position)
+            for landing in self.jump_positions[node.position]:
+                next_node = self._expand_jump_node(node, landing)
+                if next_node is None:
+                    continue
+                rounded_p = round(next_node.prob, 6)
+                if rounded_p < self.current_prob:
+                    self._add_risky_move(rounded_p, next_node)
+                else:
+                    self.open_set.put((next_node.euclidean_distance, next_node))
+                    self.nodes[landing.y][landing.x] = next_node
+
     def _expand_node(self, node, direction, out_of_moves=False):
         euclidean_distance = node.euclidean_distance + 1 if direction.x == 0 or direction.y == 0 else node.euclidean_distance + 1.41421
         to_pos = self.game.state.pitch.squares[node.position.y + direction.y][node.position.x + direction.x]
@@ -360,7 +380,8 @@ class Pathfinder:
         if player_at is not None:
             if player_at.team == self.player.team and node.can_handoff and player_at.can_catch():
                 return self._expand_handoff_node(node, to_pos)
-            elif player_at.team != self.player.team and node.can_block and player_at.state.up:
+            elif (player_at.team != self.player.team and node.can_block and player_at.state.up and
+                  (self.blitz_target is None or player_at == self.blitz_target)):
                 return self._expand_block_node(node, euclidean_distance, to_pos, player_at)
             elif player_at.team != self.player.team and node.can_foul and not player_at.state.up:
                 return self._expand_foul_node(node, to_pos, player_at)
@@ -393,6 +414,21 @@ class Pathfinder:
             next_node.apply_pickup(target)
         if best_before is not None and self._dominant(next_node, best_before) == best_before:
             return None
+        return next_node
+
+    def _expand_jump_node(self, node, to_pos):
+        rushes = max(0, 2 - node.moves_left)
+        next_node = Node(node, to_pos, max(0, node.moves_left - 2),
+                         node.gfis_left - rushes, node.euclidean_distance + 2)
+        for _ in range(rushes):
+            next_node.apply_gfi(self.gfi_target)
+        marking = max(int(self.tzones[node.position.y][node.position.x]), int(self.tzones[to_pos.y][to_pos.x]))
+        next_node.apply_jump(min(6, max(2, self.player.get_ag_target() + marking)))
+        if self.ball_position == to_pos:
+            next_node.apply_pickup(self._get_pickup_target(to_pos))
+        for best in (self.nodes[to_pos.y][to_pos.x], self.locked_nodes[to_pos.y][to_pos.x]):
+            if best is not None and self._dominant(next_node, best) == best:
+                return None
         return next_node
 
     def _expand_foul_node(self, node, to_pos, player_at):

@@ -37,6 +37,7 @@ cdef extern from "pathing_node.h" namespace "node_ns":
         void apply_handoff(int)
         void apply_foul(int)
         void apply_stand_up(int)
+        void apply_jump(int)  # Season 3, October 2026.
 
     bint operator <(Node, Node)
     bint operator <(shared_ptr[Node], shared_ptr[Node])

@@ -1,5 +1,5 @@
 
-// Modified for the Season 3 Secure the Ball action, October 2026.
+// Modified for Season 3 action controls, October 2026.
 appControllers.controller('GameListCtrl', ['$scope', '$window', 'GameService', 'ReplayService',
     function GameListCtrl($scope, $window, GameService, ReplayService) {
         $scope.games = [];
@@ -537,10 +537,10 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
                         } else if (action.action_type === "MOVE"){
                             $scope.available_move_positions = action.positions;
                             $scope.available_dodge_rolls = action.rolls;
-                        } else if (action.action_type === "LEAP") {
-                            $scope.special_actions.push("LEAP");
-                            $scope.special_rolls["LEAP"] = action.rolls;
-                            $scope.special_positions["LEAP"] = action.positions;
+                        } else if (action.action_type === "LEAP" || action.action_type === "JUMP") {
+                            $scope.special_actions.push(action.action_type);
+                            $scope.special_rolls[action.action_type] = action.rolls;
+                            $scope.special_positions[action.action_type] = action.positions;
                         } else if (action.action_type === "STAB"){
                             $scope.special_actions.push("STAB");
                             $scope.special_rolls["STAB"] = action.rolls;
