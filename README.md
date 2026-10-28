@@ -4,7 +4,16 @@ An independent development repository adapting [Bot Bowl](https://github.com/nju
 
 ## Status
 
-Repository setup only. The imported engine still uses the upstream BB2016 rules; the Season 3 migration has not been implemented. See [BUILD_PLAN.md](BUILD_PLAN.md) for the agreed scope and implementation stages.
+The first Season 3 migration slice is implemented behind the explicit `season3-preview` configuration: fixed Human profiles with PA, native target characteristics, passing/interception order, catch modifiers, and team re-roll eligibility. It is incomplete; ordinary defaults still use upstream BB2016. See the [coverage and validation notes](docs/season3-migration.md) and [build plan](BUILD_PLAN.md).
+
+With the project environment installed, run a headless scripted-versus-scripted preview from the repository root:
+
+```sh
+python -m examples.season3_preview --seed 0
+python -m pytest tests/game/test_season3.py -q
+```
+
+Secure the Ball, revised match events, interface/observation changes, and other applicable rules remain to be migrated. Do not use this preview for Season 3 training or claim full rules fidelity yet.
 
 ## Scope
 

@@ -66,6 +66,7 @@ class RollType(Enum):
     BLOOD_LUST_ROLL = 32
     BOMB_ROLL = 33
     LAND_ROLL = 34
+    PASSING_ROLL = 35  # Added for Season 3 Passing Ability tests, October 2026.
 
 
 class OutcomeType(Enum):

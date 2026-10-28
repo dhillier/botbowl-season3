@@ -6,6 +6,7 @@ Author: Mattias Bermell
 Year: 2021
 ==========================
 This module contains the pathfinding algorithm implemented in cython
+Modified for native Season 3 target characteristics, October 2026.
 which compiles to a faster module. The algorithm is intended to generate
 the exact same result as the python implementation.
 """
@@ -41,20 +42,6 @@ DIRECTIONS[4] = Square( 0, 1)
 DIRECTIONS[5] = Square( 1,-1)
 DIRECTIONS[6] = Square( 1, 0)
 DIRECTIONS[7] = Square( 1, 1)
-
-cdef int agi_table[11] 
-agi_table[0] = 6
-agi_table[1] = 6 
-agi_table[2] = 5
-agi_table[3] = 4
-agi_table[4] = 3
-agi_table[5] = 2
-agi_table[6] = 1
-agi_table[7] = 1
-agi_table[8] = 1
-agi_table[9] = 1
-agi_table[10] = 1
-
 
 cdef class Path:
     cdef:
@@ -194,7 +181,7 @@ cdef class Pathfinder:
         self.can_foul = can_foul
         self.is_stunty = player.has_skill(table.Skill.STUNTY)
         self.directly_to_adjacent = directly_to_adjacent
-        self.dodge_target = agi_table[self.player.get_ag()] - 1
+        self.dodge_target = self.player.get_ag_target() - (0 if self.game.is_season3 else 1)
         self.current_prob = 1.0
                 
         for p in game.get_players_on_pitch():
@@ -261,7 +248,7 @@ cdef class Pathfinder:
 
     cdef int _get_handoff_target(self, object catcher):
         cdef int modifiers = self.game.get_catch_modifiers(catcher, handoff=True)
-        cdef int target = agi_table[catcher.get_ag()] - modifiers
+        cdef int target = catcher.get_ag_target() - modifiers
         return min(6, max(2, target))
 
     cdef int _get_dodge_target(self, Square from_pos, Square to_pos):
@@ -393,7 +380,7 @@ cdef class Pathfinder:
         best_node = self.nodes[to_pos.y][to_pos.x]
         best_before = self.locked_nodes[to_pos.y][to_pos.x]
         assists_from, assists_to = self.game.num_assists_at(self.player, player_at, to_botbowl_Square(node.get().position), foul=True)
-        target = min(12, max(2, player_at.get_av() + 1 - assists_from + assists_to))
+        target = min(12, max(2, player_at.get_armor_target() - assists_from + assists_to))
         next_node = make_shared[Node](node, to_pos, 0, 0, node.get().euclidean_distance)
         next_node.get().apply_foul(target)
 

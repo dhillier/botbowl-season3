@@ -4,6 +4,7 @@ Author: Niels Justesen
 Year: 2018
 ==========================
 This module contains the functions used to load data in the /data/ folder.
+Modified for the fixed-roster Season 3 rules profile, October 2026.
 """
 
 from botbowl.core.model import *
@@ -56,6 +57,19 @@ def load_rule_set(name, debug=False, all_rules=True):
     :param all_rules: If False, only a small set of the rules are loaded.
     :return: A ruleset loaded from .xml.
     """
+
+    if name == 'BB2025':
+        with open(get_data_path('rules/BB2025.json')) as source:
+            data = json.load(source)
+        race = Race('Human', [], data['reroll_cost'], True, False)
+        for profile in data['positions']:
+            race.roles.append(Role(
+                profile['name'], ['Human'], profile['ma'], profile['st'],
+                profile['ag'], profile['av'], [parse_enum(Skill, s) for s in profile['skills']],
+                profile['cost'], False, pa=profile['pa'], target_characteristics=True))
+        # Only the selected fixed roster is supported; no league/star-player data.
+        return RuleSet(name, races=[race], star_players=[], inducements=[],
+                       spp_actions={}, spp_levels={}, improvements={})
 
     path = get_data_path('rules/' + name + '.xml')
 
@@ -180,7 +194,7 @@ def load_team(path, ruleset):
     for p in data['players']:
         role = ruleset.get_role(p['position'], team.race)
         player_id = str(uuid.uuid1())
-        player = Player(player_id=player_id, role=role, name=p['name'], nr=p['nr'], team=team, niggling_injuries=p['niggling'], extra_ma=p['extra_ma'], extra_st=p['extra_st'], extra_ag=p['extra_ag'], extra_av=p['extra_av'], mng=p['mng'], spp=p['spp'])
+        player = Player(player_id=player_id, role=role, name=p['name'], nr=p['nr'], team=team, niggling_injuries=p['niggling'], extra_ma=p['extra_ma'], extra_st=p['extra_st'], extra_ag=p['extra_ag'], extra_av=p['extra_av'], extra_pa=p.get('extra_pa', 0), mng=p['mng'], spp=p['spp'])
         for s in p['extra_skills']:
             player.extra_skills.append(parse_enum(Skill, s))
         team.players.append(player)

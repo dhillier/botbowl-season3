@@ -1,6 +1,6 @@
 # Blood Bowl Season 3 — fixed-roster Bot Bowl migration
 
-Status: scope narrowed by the user on 28 October 2026. Planning and investigation completed so far; Bot Bowl source and history imported into the independent workspace. No Season 3 engine changes implemented yet.
+Status: first implementation slice completed on 28 October 2026. The explicit Season 3 preview includes fixed Human characteristics/PA, passing/interception sequencing, catching, re-roll eligibility, and corresponding target/probability changes. The migration remains incomplete. Current coverage, interpretation decisions, validation, and remaining work are tracked in [docs/season3-migration.md](docs/season3-migration.md).
 
 ## Confirmed direction
 

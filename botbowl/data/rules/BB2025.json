@@ -1,0 +1,12 @@
+{
+  "version": "BB2025",
+  "status": "migration-preview-incomplete",
+  "source": "BB S3/Teams/Human.pdf, page 1",
+  "reroll_cost": 50000,
+  "positions": [
+    {"name": "Lineman", "ma": 6, "st": 3, "ag": 3, "pa": 4, "av": 9, "skills": [], "cost": 50000},
+    {"name": "Thrower", "ma": 6, "st": 3, "ag": 3, "pa": 3, "av": 9, "skills": ["Pass", "Sure Hands"], "cost": 75000},
+    {"name": "Catcher", "ma": 8, "st": 3, "ag": 3, "pa": 4, "av": 8, "skills": ["Catch", "Dodge"], "cost": 75000},
+    {"name": "Blitzer", "ma": 7, "st": 3, "ag": 3, "pa": 4, "av": 9, "skills": ["Block", "Tackle"], "cost": 85000}
+  ]
+}

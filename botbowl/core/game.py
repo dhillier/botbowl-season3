@@ -4,6 +4,7 @@ Author: Niels Justesen
 Year: 2018
 ==========================
 This module contains the Game class, which is the main class and interface used to interact with a game in botbowl.
+Modified for Season 3 tests, probabilities, and re-roll eligibility, October 2026.
 """
 from contextlib import contextmanager
 import itertools
@@ -20,6 +21,10 @@ class InvalidActionError(Exception):
 
 
 class Game:
+    @property
+    def is_season3(self):
+        return self.ruleset.is_season3
+
     replay: Optional[Replay]
     game_id: str
     home_agent: Agent
@@ -67,6 +72,8 @@ class Game:
 
     def to_json(self, ignore_reports: bool = False):
         return {
+            'ruleset': self.ruleset.name,
+            'rules_status': 'migration-preview-incomplete' if self.is_season3 else 'legacy',
             'game_id': self.game_id,
             'start_time': self.start_time,
             'end_time': self.end_time,
@@ -855,7 +862,7 @@ class Game:
         :param team:
         :return: True if the team can use reroll right now (i.e. this turn).
         """
-        if not team.state.reroll_used and team.state.rerolls > 0 and self.state.current_team == team:
+        if (self.is_season3 or not team.state.reroll_used) and team.state.rerolls > 0 and self.state.current_team == team:
             current_turn = self.current_turn()
             if current_turn is not None and isinstance(current_turn, Turn):
                 return not current_turn.quick_snap
@@ -1214,7 +1221,7 @@ class Game:
             piece_a.move_to(pos_b)
 
     def get_catch_modifiers(self, catcher: Player, accurate: bool = False, interception: bool = False,
-                            handoff: bool = False) -> int:
+                            handoff: bool = False, inaccurate: bool = False) -> int:
         """
         :param catcher:
         :param accurate: whether it is an accurate pass.
@@ -1226,6 +1233,10 @@ class Game:
         if catcher.has_skill(Skill.DIVING_CATCH) and accurate:
             modifiers += 1
         modifiers = -2 if interception else modifiers
+        if self.is_season3:
+            modifiers = 0 if accurate or handoff or inaccurate else -1
+            if interception:
+                modifiers = -2 if inaccurate else -3
         if interception and catcher.has_skill(Skill.VERY_LONG_LEGS):
             modifiers += 1
         # opposing tackle zones
@@ -1249,6 +1260,8 @@ class Game:
         :return: the modifier to be added to the pass roll.
         """
         modifiers = Rules.pass_modifiers[pass_distance]
+        if self.is_season3 and pass_distance != PassDistance.HAIL_MARY:
+            modifiers -= 1
         # Opposing tackle zones
         tackle_zones = self.num_tackle_zones_in(passer)
         if not passer.has_skill(Skill.NERVES_OF_STEEL):
@@ -1293,7 +1306,7 @@ class Game:
         :param include_diving_tackle:
         :return: the modifier to be added to the dodge roll.
         """
-        modifiers = 1
+        modifiers = 0 if self.is_season3 else 1
         tackle_zones_to = self.num_tackle_zones_at(player, position)
 
         ignore_opp_mods = False
@@ -1325,7 +1338,7 @@ class Game:
         :param position: the square of the ball.
         :return: the modifier to be added to the pickup roll.
         """
-        modifiers = 1
+        modifiers = 0 if self.is_season3 else 1
         tackle_zones = self.num_tackle_zones_at(player, position)
 
         if not player.has_skill(Skill.BIG_HAND):
@@ -1951,7 +1964,7 @@ class Game:
         """
         if self.num_tackle_zones_in(player) == 0:
             return 1.0
-        ag_roll = Rules.agility_table[player.get_ag()] - self.get_dodge_modifiers(player, position)
+        ag_roll = player.get_ag_target() - self.get_dodge_modifiers(player, position)
         ag_roll = max(2, min(6, ag_roll))
         successful_outcomes = 6 - (ag_roll - 1)
         p = successful_outcomes / 6.0
@@ -1962,7 +1975,7 @@ class Game:
         return p
 
     def get_catch_prob(self, player: Player, accurate: bool=False, interception: bool=False, handoff: bool=False, allow_catch_reroll: bool=True,
-                       allow_team_reroll: bool=False) -> float:
+                       allow_team_reroll: bool=False, inaccurate: bool=False) -> float:
         """
         :param player:
         :param accurate: whether it is an accurate pass
@@ -1972,11 +1985,13 @@ class Game:
         :param allow_team_reroll:
         :return: the probability of a successful catch for player.
         """
-        ag_roll = Rules.agility_table[player.get_ag()] - self.get_catch_modifiers(player, accurate=accurate, interception=interception, handoff=handoff)
+        if not player.can_catch():
+            return 0.0
+        ag_roll = player.get_ag_target() - self.get_catch_modifiers(player, accurate=accurate, interception=interception, handoff=handoff, inaccurate=inaccurate)
         ag_roll = max(2, min(6, ag_roll))
         successful_outcomes = 6 - (ag_roll - 1)
         p = successful_outcomes / 6.0
-        if allow_catch_reroll and player.has_skill(Skill.CATCH):
+        if allow_catch_reroll and player.has_skill(Skill.CATCH) and not (self.is_season3 and interception):
             p += (1.0 - p) * p
         elif allow_team_reroll and self.can_use_reroll(player.team):
             p += (1.0 - p) * p
@@ -2007,7 +2022,7 @@ class Game:
         :param allow_team_reroll:
         :return: the probability of a successful catch for player.
         """
-        ag_roll = Rules.agility_table[player.get_ag()] - self.get_pickup_modifiers(player, position=position)
+        ag_roll = player.get_ag_target() - self.get_pickup_modifiers(player, position=position)
         ag_roll = max(2, min(6, ag_roll))
         successful_outcomes = 6 - (ag_roll - 1)
         p = successful_outcomes / 6.0
@@ -2033,7 +2048,10 @@ class Game:
             assert distance in {PassDistance.SHORT_PASS, PassDistance.QUICK_PASS}, "Throw team mate distance is too far"
 
         modifiers = self.get_pass_modifiers(player, pass_distance=distance, ttm=ttm)
-        ag_roll = Rules.agility_table[player.get_ag()] - modifiers
+        target = player.get_pass_target()
+        if target is None:
+            return 0.0
+        ag_roll = target - modifiers
         ag_roll = max(2, min(6, ag_roll))
         successful_outcomes = 6 - (ag_roll - 1)
         p = successful_outcomes / 6.0
@@ -2404,7 +2422,7 @@ class Game:
             if player_to.can_catch():
                 hand_off_positions.append(player_to.position)
                 modifiers = self.get_catch_modifiers(player_to, handoff=True)
-                target = Rules.agility_table[player.get_ag()]
+                target = player_to.get_ag_target()
                 rolls.append([min(6, max(2, target - modifiers))])
 
         if len(hand_off_positions) > 0:
@@ -2447,10 +2465,10 @@ class Game:
                         rolls.append(gfi_roll)
                     if self.num_tackle_zones_in(player) > 0:
                         modifiers = self.get_dodge_modifiers(player, square)
-                        target = Rules.agility_table[player.get_ag()]
+                        target = player.get_ag_target()
                         rolls.append(min(6, max(2, target - modifiers)))
                     if ball_at is not None and ball_at.on_ground:
-                        target = Rules.agility_table[player.get_ag()]
+                        target = player.get_ag_target()
                         modifiers = self.get_pickup_modifiers(player, square)
                         rolls.append(min(6, max(2, target - modifiers)))
                 d6_rolls.append(rolls)
@@ -2468,7 +2486,7 @@ class Game:
             leap_rolls = []
             leap_positions = []
             modifiers = 0 if player.has_skill(Skill.VERY_LONG_LEGS) else 0
-            target = Rules.agility_table[player.get_ag()]
+            target = player.get_ag_target()
             leap_roll = min(6, max(2, target - modifiers))
             for square in self.get_adjacent_squares(player.position, occupied=False, distance=2):
                 distance = player.position.distance(square)
@@ -2501,7 +2519,7 @@ class Game:
             foul_positions.append(player_to.position)
             assists_from = self.get_assisting_players(player, player_to, foul=True)
             assists_to = self.get_assisting_players(player_to, player, foul=True)
-            target = min(12, max(2, player_to.get_av() + 1 - len(assists_from) + len(assists_to)))
+            target = min(12, max(2, player_to.get_armor_target() - len(assists_from) + len(assists_to)))
             foul_rolls.append([target])
 
         if len(foul_positions) > 0:
@@ -2534,7 +2552,7 @@ class Game:
                 else:
                     return []
             else:
-                jump_up_rolls.append(min(6, Rules.agility_table[player.get_ag()] + 2))
+                jump_up_rolls.append(min(6, player.get_ag_target() + 2))
 
         actions = []
 
@@ -2557,7 +2575,7 @@ class Game:
                                        dauntless_success=False)
             block_dice.append(dice)
             if player.has_skill(Skill.STAB):
-                roll = player_to.get_av() + 1
+                roll = player_to.get_armor_target()
                 if player.has_skill(Skill.STAKES) and player_to.team.race in ['Khemri', 'Necromantic',
                                                                               'Undead', 'Vampire']:
                     roll += 1
@@ -2587,12 +2605,14 @@ class Game:
                 position = positions[i]
                 if distance not in cache:
                     modifiers = self.get_pass_modifiers(player, distance, ttm=ttm)
-                    target = Rules.agility_table[player.get_ag()]
+                    target = player.get_pass_target()
+                    if target is None:
+                        return []
                     cache[distance] = min(6, max(2, target - modifiers))
                 rolls = [cache[distance]]
                 player_to = self.get_player_at(position)
                 if player_to is not None and type(piece) != Player and (player_to.team == player.team or type(piece) == Bomb) and player_to.can_catch():
-                    catch_target = Rules.agility_table[player_to.get_ag()]
+                    catch_target = player_to.get_ag_target()
                     catch_modifiers = self.get_catch_modifiers(player_to, accurate=True)
                     rolls.append(min(6, max(2, catch_target - catch_modifiers)))
                 d6_rolls.append(rolls)
@@ -2617,7 +2637,7 @@ class Game:
 
             if len(hypno_positions) > 0:
                 modifier = self.get_hypno_modifier(player)
-                target = Rules.agility_table[player.get_ag()]
+                target = player.get_ag_target()
                 d6_roll = min(6, max(2, target - modifier))
                 rolls = [[d6_roll]] * len(hypno_positions)
 

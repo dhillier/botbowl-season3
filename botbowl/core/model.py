@@ -4,6 +4,7 @@ Author: Niels Justesen
 Year: 2018
 ==========================
 This module contains most of the model classes.
+Modified for the Season 3 characteristics migration, October 2026.
 """
 
 from botbowl.core.util import get_data_path, Stack, compare_iterable
@@ -1032,7 +1033,7 @@ class Dugout(Reversible):
 class Role:
 
     def __init__(self, name, races, ma, st, ag, av, skills, cost, feeder, n_skill_sets=None, d_skill_sets=None,
-                 star_player=False):
+                 star_player=False, pa=None, target_characteristics=False):
         self.name = name
         self.races = races
         self.ma = ma
@@ -1045,6 +1046,8 @@ class Role:
         self.n_skill_sets = n_skill_sets if n_skill_sets is not None else []
         self.d_skill_sets = d_skill_sets if d_skill_sets is not None else []
         self.star_player = star_player
+        self.pa = pa
+        self.target_characteristics = target_characteristics
 
 
 class Piece:
@@ -1129,7 +1132,7 @@ class Player(Piece, Reversible):
     injuries: List
 
     def __init__(self, player_id, role, name, nr, team, extra_skills=None, extra_ma=0, extra_st=0, extra_ag=0,
-                 extra_av=0, niggling_injuries=0, mng=False, spp=0, injuries=None, position=None):
+                 extra_av=0, niggling_injuries=0, mng=False, spp=0, injuries=None, position=None, extra_pa=0):
         Reversible.__init__(self, ignored_keys=["position", "role"])
         super().__init__(position)
         self.player_id = player_id
@@ -1142,6 +1145,7 @@ class Player(Piece, Reversible):
         self.extra_st = extra_st
         self.extra_ag = extra_ag
         self.extra_av = extra_av
+        self.extra_pa = extra_pa
         self.injuries = [] if injuries is None else injuries
         for _ in range(niggling_injuries):
             self.injuries.append(CasualtyEffect.NIGGLING)
@@ -1162,6 +1166,8 @@ class Player(Piece, Reversible):
             'st': self.get_st(),
             'ag': self.get_ag(),
             'av': self.get_av(),
+            'pa': self.get_pa(),
+            'target_characteristics': self.role.target_characteristics,
             'injuries': [injury.name for injury in self.injuries],
             'mng': self.mng,
             'spp': self.spp,
@@ -1170,6 +1176,9 @@ class Player(Piece, Reversible):
         }
 
     def get_ag(self):
+        if self.role.target_characteristics:
+            injuries = self.injuries.count(CasualtyEffect.AG) + self.state.injuries_gained.count(CasualtyEffect.AG)
+            return max(1, min(6, self.role.ag - self.extra_ag + injuries))
         ag = self.role.ag + self.extra_ag - self.injuries.count(CasualtyEffect.AG) - self.state.injuries_gained.count(
             CasualtyEffect.AG)
         ag = max(self.role.ag - 2, ag)
@@ -1177,12 +1186,27 @@ class Player(Piece, Reversible):
         ag = min(10, ag)
         return ag
 
+    def get_ag_target(self):
+        """Target number, independent of the edition's profile representation."""
+        return self.get_ag() if self.role.target_characteristics else Rules.agility_table[self.get_ag()]
+
+    def get_pa(self):
+        if self.role.pa is None:
+            return None
+        return max(1, min(6, self.role.pa - self.extra_pa))
+
+    def get_pass_target(self):
+        return self.get_pa() if self.role.target_characteristics else self.get_ag_target()
+
+    def get_armor_target(self):
+        return self.get_av() if self.role.target_characteristics else self.get_av() + 1
+
     def get_st(self):
         st = self.role.st + self.extra_st - self.injuries.count(CasualtyEffect.ST) - self.state.injuries_gained.count(
             CasualtyEffect.ST)
         st = max(self.role.st - 2, st)
         st = max(1, st)
-        st = min(10, st)
+        st = min(8 if self.role.target_characteristics else 10, st)
         return st
 
     def get_ma(self):
@@ -1193,10 +1217,13 @@ class Player(Piece, Reversible):
                 CasualtyEffect.MA) - self.state.injuries_gained.count(CasualtyEffect.MA)
             ma = max(self.role.ma - 2, ma)
             ma = max(1, ma)
-            ma = min(10, ma)
+            ma = min(9 if self.role.target_characteristics else 10, ma)
             return ma
 
     def get_av(self):
+        if self.role.target_characteristics:
+            injuries = self.injuries.count(CasualtyEffect.AV) + self.state.injuries_gained.count(CasualtyEffect.AV)
+            return max(3, min(11, self.role.av + self.extra_av - injuries))
         av = self.role.av + self.extra_av - - self.injuries.count(CasualtyEffect.AV) - self.state.injuries_gained.count(
             CasualtyEffect.AV)
         av = max(self.role.av - 2, av)
@@ -1417,6 +1444,10 @@ class Inducement:
 
 class RuleSet:
 
+    @property
+    def is_season3(self):
+        return self.name == 'BB2025'
+
     def __init__(self, name, races=[], star_players=[], inducements=[], spp_actions={}, spp_levels={}, improvements={},
                  se_start=0, se_interval=0, se_pace=0):
         self.name = name
@@ -1455,7 +1486,7 @@ class Formation(Immutable):
             idx = np.argmax([player.get_ma() for player in players])
             return players[idx]
         if t == 'a':
-            idx = np.argmax([player.get_ag() for player in players])
+            idx = np.argmin([player.get_ag_target() for player in players])
             return players[idx]
         if t == 'v':
             idx = np.argmax([player.get_av() for player in players])

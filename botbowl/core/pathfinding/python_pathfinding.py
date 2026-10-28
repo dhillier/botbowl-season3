@@ -4,6 +4,7 @@ Author: Niels Justesen
 Year: 2020
 ==========================
 This module contains pathfinding functionalities for botbowl.
+Modified for native Season 3 target characteristics, October 2026.
 """
 from typing import Tuple, List, Optional
 
@@ -268,7 +269,7 @@ class Pathfinder:
 
     def _get_pickup_target(self, to_pos):
         zones_to = self.tzones[to_pos.y][to_pos.x]
-        modifiers = 1
+        modifiers = 0 if self.game.is_season3 else 1
         if not self.player.has_skill(Skill.BIG_HAND):
             modifiers -= int(zones_to)
         if self.game.state.weather == WeatherType.POURING_RAIN:
@@ -276,12 +277,12 @@ class Pathfinder:
                 modifiers -= 1
         if self.player.has_skill(Skill.EXTRA_ARMS):
             modifiers += 1
-        target = Rules.agility_table[self.player.get_ag()] - modifiers
+        target = self.player.get_ag_target() - modifiers
         return min(6, max(2, target))
 
     def _get_handoff_target(self, catcher):
         modifiers = self.game.get_catch_modifiers(catcher, handoff=True)
-        target = Rules.agility_table[catcher.get_ag()] - modifiers
+        target = catcher.get_ag_target() - modifiers
         return min(6, max(2, target))
 
     def _get_dodge_target(self, from_pos, to_pos):
@@ -289,11 +290,11 @@ class Pathfinder:
         if zones_from == 0:
             return None
         zones_to = int(self.tzones[to_pos.y][to_pos.x])
-        modifiers = 1
+        modifiers = 0 if self.game.is_season3 else 1
 
         ignore_opp_mods = False
         if self.player.has_skill(Skill.STUNTY):
-            modifiers = 1
+            modifiers = 0 if self.game.is_season3 else 1
             ignore_opp_mods = True
         if self.player.has_skill(Skill.TITCHY):
             modifiers += 1
@@ -304,7 +305,7 @@ class Pathfinder:
         if not ignore_opp_mods:
             modifiers -= zones_to
 
-        target = Rules.agility_table[self.player.get_ag()] - modifiers
+        target = self.player.get_ag_target() - modifiers
         return min(6, max(2, target))
 
     def _expand(self, node: Node, target=None):
@@ -395,7 +396,7 @@ class Pathfinder:
         best_node = self.nodes[to_pos.y][to_pos.x]
         best_before = self.locked_nodes[to_pos.y][to_pos.x]
         assists_from, assists_to = self.game.num_assists_at(self.player, player_at, node.position, foul=True)
-        target = min(12, max(2, player_at.get_av() + 1 - assists_from + assists_to))
+        target = min(12, max(2, player_at.get_armor_target() - assists_from + assists_to))
         next_node = Node(node, to_pos, 0, 0, node.euclidean_distance)
         next_node.apply_foul(target)
         if best_node is not None and self._best(next_node, best_node) == best_node:

@@ -1,3 +1,4 @@
+# Modified for the Season 3 migration on 28 October 2026.
 """
 ==========================
 Author: Niels Justesen
@@ -196,7 +197,7 @@ class Armor(Procedure):
         # Roll
         roll = DiceRoll([D6(self.game.rng), D6(self.game.rng)], roll_type=RollType.ARMOR_ROLL)
         roll.modifiers = self.modifiers
-        roll.target = self.player.get_av() + 1
+        roll.target = self.player.get_armor_target()
         result = roll.get_sum() + self.modifiers
         self.armor_rolled = True
 
@@ -221,7 +222,7 @@ class Armor(Procedure):
 
             # Armor broken - Dirty player
             if self.inflictor is not None and self.inflictor.has_skill(Skill.DIRTY_PLAYER) \
-                    and result + 1 > self.player.get_av():
+                    and result + 1 >= self.player.get_armor_target():
                 roll.modifiers += 1
                 armor_broken = True
                 dirty_player_used = True
@@ -745,11 +746,12 @@ class Casualty(Procedure):
 
 class Catch(Procedure):
 
-    def __init__(self, game, player, piece, accurate=False, handoff=False, kick=False, passer=None):
+    def __init__(self, game, player, piece, accurate=False, handoff=False, kick=False, passer=None, inaccurate=False):
         super().__init__(game)
         self.player = player
         self.piece = piece
         self.accurate = accurate
+        self.inaccurate = inaccurate
         self.handoff = handoff
         self.roll = None
         self.reroll = None
@@ -789,8 +791,10 @@ class Catch(Procedure):
 
             # Roll
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.AGILITY_ROLL)
-            self.roll.modifiers = self.game.get_catch_modifiers(self.player, accurate=self.accurate, handoff=self.handoff)
-            self.roll.target = Rules.agility_table[self.player.get_ag()]
+            self.roll.modifiers = self.game.get_catch_modifiers(
+                self.player, accurate=self.accurate or (self.kick and self.game.is_season3),
+                handoff=self.handoff, inaccurate=self.inaccurate)
+            self.roll.target = self.player.get_ag_target()
             if self.roll.is_d6_success():
                 if type(self.piece) is Ball:
                     self.game.report(Outcome(OutcomeType.SUCCESSFUL_CATCH, player=self.player, rolls=[self.roll]))
@@ -832,9 +836,10 @@ class Catch(Procedure):
 
 class Intercept(Procedure):
 
-    def __init__(self, game, interceptor, ball, passer=None):
+    def __init__(self, game, interceptor, ball, passer=None, inaccurate=False):
         super().__init__(game)
         self.interceptor = interceptor
+        self.inaccurate = inaccurate
         self.ball = ball
         self.roll = None
         self.reroll = None
@@ -849,7 +854,7 @@ class Intercept(Procedure):
         if self.waiting_safe_throw:
             # Make agility roll for passer
             self.safe_throw_roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.AGILITY_ROLL)
-            self.safe_throw_roll.target = Rules.agility_table[self.passer.get_ag()]
+            self.safe_throw_roll.target = self.passer.get_ag_target()
             self.game.report(
                 Outcome(OutcomeType.SKILL_USED, player=self.passer, skill=Skill.SAFE_THROW, rolls=[self.safe_throw_roll]))
             if self.safe_throw_roll.is_d6_success():
@@ -887,8 +892,9 @@ class Intercept(Procedure):
 
             # Roll
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.AGILITY_ROLL)
-            self.roll.modifiers = self.game.get_catch_modifiers(self.interceptor, interception=True)
-            self.roll.target = Rules.agility_table[self.interceptor.get_ag()]
+            self.roll.modifiers = self.game.get_catch_modifiers(
+                self.interceptor, interception=True, inaccurate=self.inaccurate)
+            self.roll.target = self.interceptor.get_ag_target()
             if self.roll.is_d6_success():
                 self.game.report(Outcome(OutcomeType.INTERCEPTION, player=self.interceptor, rolls=[self.roll]))
                 if self.passer is not None and self.passer.has_skill(Skill.SAFE_THROW):
@@ -1215,27 +1221,28 @@ class Injury(Procedure):
 
 class Interception(Procedure):
 
-    def __init__(self, game, team, ball, interceptors, passer):
+    def __init__(self, game, team, ball, interceptors, passer, inaccurate=False):
         super().__init__(game)
         self.team = team
         self.passer = passer
         self.ball = ball
         self.interceptors = interceptors
+        self.inaccurate = inaccurate
 
     def start(self):
         self.game.add_secondary_clock(self.team)
 
     def step(self, action):
         if action.action_type == ActionType.SELECT_PLAYER:
-            Intercept(self.game, action.player, self.ball, passer=self.passer)
+            Intercept(self.game, action.player, self.ball, passer=self.passer, inaccurate=self.inaccurate)
         self.game.remove_secondary_clocks()
         return True
 
     def available_actions(self):
         rolls = []
         for interceptor in self.interceptors:
-            modifier = self.game.get_catch_modifiers(interceptor, interception=True)
-            rolls.append([max(2, min(6, Rules.agility_table[interceptor.get_ag()] - modifier))])
+            modifier = self.game.get_catch_modifiers(interceptor, interception=True, inaccurate=self.inaccurate)
+            rolls.append([max(2, min(6, interceptor.get_ag_target() - modifier))])
         return [ActionChoice(ActionType.SELECT_PLAYER, team=self.team,
                              players=self.interceptors, rolls=rolls),
                 ActionChoice(ActionType.SELECT_NONE, team=self.team)]
@@ -1712,7 +1719,7 @@ class Leap(Procedure):
 
             # Agility roll
             self.roll = DiceRoll([D6(self.game.rng)])
-            self.roll.target = Rules.agility_table[self.player.get_ag()]
+            self.roll.target = self.player.get_ag_target()
             self.roll.modifiers = self.game.get_leap_modifiers(self.player)
 
             if self.roll.is_d6_success():
@@ -2035,7 +2042,7 @@ class Dodge(Procedure):
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.AGILITY_ROLL)
             self.roll.modifiers = self.game.get_dodge_modifiers(self.player, self.position, include_diving_tackle=(self.diving_tackler is not None))
 
-            agility_target = Rules.agility_table[self.player.get_ag()]
+            agility_target = self.player.get_ag_target()
             self.roll.target = agility_target
             if self.player.can_use_skill(Skill.BREAK_TACKLE) and self.player.get_st() > self.player.get_ag():
                 self.break_tackle_target = Rules.agility_table[self.player.get_st()]
@@ -2097,7 +2104,8 @@ class TurnoverIfPossessionLost(Procedure):
 
     def step(self, action):
         player_at = self.game.get_player_at(self.ball.position)
-        if player_at is None or player_at.team != self.game.state.current_team:
+        if (player_at is None or player_at.team != self.game.state.current_team or
+                (self.game.is_season3 and not self.ball.is_carried)):
             Turnover(self.game)
         return True
 
@@ -2165,7 +2173,7 @@ class Land(Procedure):
     def step(self, action):
         if self.roll is None:
             self.roll = DiceRoll([D6(self.game.rng)], RollType.LAND_ROLL)
-            self.roll.target = Rules.agility_table[self.player.get_ag()]
+            self.roll.target = self.player.get_ag_target()
             self.roll.modifiers = self.game.get_landing_modifiers(self.player)
             if self.roll.is_d6_success():
                 self.game.report(Outcome(OutcomeType.SUCCESSFUL_LAND, position=self.player.position, player=self.player, rolls=[self.roll]))
@@ -2244,7 +2252,7 @@ class PassAttempt(Procedure):
 
             # Roll
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.AGILITY_ROLL)
-            self.roll.target = Rules.agility_table[self.passer.get_ag()]
+            self.roll.target = self.passer.get_ag_target()
             self.roll.modifiers = self.game.get_pass_modifiers(self.passer, self.pass_distance, ttm=self.ttm)
             result = self.roll.get_sum()
             mod_result = result + self.roll.modifiers
@@ -2332,6 +2340,74 @@ class PassAttempt(Procedure):
         Scatter(self.game, self.piece, is_pass=True)
 
 
+class Season3PassAttempt(PassAttempt):
+    """Ball passes: PA test, scatter, interception, then landing (in that order)."""
+
+    def __init__(self, game, passer, piece, position, pass_distance, dump_off=False):
+        super().__init__(game, passer, piece, position, pass_distance, dump_off)
+        self.accurate = False
+        self.landing_prepared = False
+        self.scatter = None
+
+    def step(self, action):
+        if not self.landing_prepared:
+            if self.roll is None:
+                self.piece.is_carried = False
+                self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.PASSING_ROLL)
+                self.roll.target = self.passer.get_pass_target()
+                self.roll.modifiers = self.game.get_pass_modifiers(self.passer, self.pass_distance)
+                result = self.roll.get_sum()
+                self.accurate = self.roll.is_d6_success()
+                # The supplied revised rule says exactly 1 after modifiers.
+                self.fumble = not self.accurate and (result == 1 or result + self.roll.modifiers == 1)
+                outcome = (OutcomeType.ACCURATE_PASS if self.accurate else
+                           OutcomeType.FUMBLE if self.fumble else OutcomeType.INACCURATE_PASS)
+                self.game.report(Outcome(outcome, player=self.passer, rolls=[self.roll]))
+                if not self.accurate:
+                    self.reroll = Reroll(self.game, self.passer, context=self)
+                    return False
+            elif self.reroll is not None and self.reroll.use_reroll:
+                self.roll = None
+                self.reroll = None
+                return False
+
+            if self.fumble:
+                self._fumble()
+                return True
+            self.game.move(self.piece, self.position)
+            self.landing_prepared = True
+            if not self.accurate:
+                self.scatter = Scatter(self.game, self.piece, is_pass=True, defer_landing=True)
+                return False
+
+        if self.game.is_out_of_bounds(self.piece.position):
+            if not self.dump_off:
+                TurnoverIfPossessionLost(self.game, self.piece)
+            ThrowIn(self.game, self.piece, self.scatter.throw_in_position)
+            return True
+
+        if not self.interception_tried:
+            self.interception_tried = True
+            interceptors = self.game.get_interceptors(
+                self.passer.position, self.piece.position, self.game.get_opp_team(self.passer.team))
+            if interceptors:
+                Interception(self.game, interceptors[0].team, self.piece, interceptors,
+                             self.passer, inaccurate=not self.accurate)
+                return False
+
+        # Successful interceptions have already resolved possession and turnover.
+        if self.piece.is_carried:
+            return True
+        if not self.dump_off:
+            TurnoverIfPossessionLost(self.game, self.piece)
+        catcher = self.game.get_catcher(self.piece.position)
+        if catcher is not None:
+            Catch(self.game, catcher, self.piece, accurate=self.accurate, inaccurate=not self.accurate)
+        else:
+            Bounce(self.game, self.piece)
+        return True
+
+
 class Pickup(Procedure):
 
     def __init__(self, game, ball, player):
@@ -2347,7 +2423,7 @@ class Pickup(Procedure):
         if self.roll is None:
 
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.AGILITY_ROLL)
-            self.roll.target = Rules.agility_table[self.player.get_ag()]
+            self.roll.target = self.player.get_ag_target()
             self.roll.modifiers = self.game.get_pickup_modifiers(self.player, self.ball.position)
 
             # Roll
@@ -2478,7 +2554,7 @@ class JumpUpToBlock(Procedure):
 
         if self.roll is None:
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.AGILITY_ROLL)
-            self.roll.target = Rules.agility_table[self.player.get_ag()]
+            self.roll.target = self.player.get_ag_target()
             self.roll.modifiers = 2
             if self.roll.is_d6_success():
                 self.player.state.up = True
@@ -2835,7 +2911,8 @@ class PassAction(MoveAction):
                 self.game.use_pass_action()
                 EndPlayerTurn(self.game, self.player)
             piece = self.game.get_ball_at(self.player.position)
-            PassAttempt(self.game, self.player, piece, action.position, pass_distance, dump_off=self.dump_off)
+            attempt = Season3PassAttempt if self.game.is_season3 and type(piece) is Ball else PassAttempt
+            attempt(self.game, self.player, piece, action.position, pass_distance, dump_off=self.dump_off)
             return True
 
         if action.action_type == ActionType.PICKUP_TEAM_MATE:
@@ -3368,12 +3445,14 @@ class Push(Procedure):
 
 class Scatter(Procedure):
 
-    def __init__(self, game, piece, kick=False, is_pass=False, gentle_gust=False):
+    def __init__(self, game, piece, kick=False, is_pass=False, gentle_gust=False, defer_landing=False):
         super().__init__(game)
         self.piece = piece
         self.kick = kick
         self.is_pass = is_pass
         self.gentle_gust = gentle_gust
+        self.defer_landing = defer_landing
+        self.throw_in_position = None
 
     def step(self, action):
 
@@ -3447,7 +3526,9 @@ class Scatter(Procedure):
                     # Throw in
                     if self.game.is_out_of_bounds(self.piece.position):
                         if type(self.piece) is Ball:
-                            ThrowIn(self.game, self.piece, self.game.get_square(self.piece.position.x-x, self.piece.position.y-y))
+                            self.throw_in_position = self.game.get_square(self.piece.position.x-x, self.piece.position.y-y)
+                            if not self.defer_landing:
+                                ThrowIn(self.game, self.piece, self.throw_in_position)
                             self.game.report(Outcome(OutcomeType.BALL_SCATTER, rolls=rolls))
                             self.game.report(Outcome(OutcomeType.BALL_OUT_OF_BOUNDS,
                                                      position=self.piece.position))
@@ -3469,6 +3550,9 @@ class Scatter(Procedure):
                         self.game.report(Outcome(OutcomeType.BOMB_SCATTER, rolls=rolls))
                     elif type(self.piece) is Player:
                         self.game.report(Outcome(OutcomeType.PLAYER_SCATTER, player=self.piece, rolls=rolls))
+
+                    if self.defer_landing:
+                        return True
 
                     # On player -> Catch
                     player_at = self.game.get_player_at(self.piece.position)
@@ -4201,10 +4285,10 @@ class Reroll(Procedure):
                 self.player.use_skill(Skill.DODGE)
                 self.use_reroll = True
                 self.skill = Skill.DODGE
-        if type(self.context) == PassAttempt and self.player.can_use_skill(Skill.PASS):
+        if isinstance(self.context, PassAttempt) and self.player.can_use_skill(Skill.PASS):
             self.use_reroll = True
             self.skill = Skill.PASS
-        if type(self.context) == Intercept:
+        if type(self.context) == Intercept and not self.game.is_season3:
             # Make sure it is not a safe throw agility re-roll
             if self.context.safe_throw_reroll is None and self.player.can_use_skill(Skill.CATCH):
                 self.use_reroll = True
@@ -4473,7 +4557,7 @@ class HypnoticGaze(Procedure):
             #agility roll with tz modifiers except target_player
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.AGILITY_ROLL)
             self.roll.modifiers = self.game.get_hypno_modifier(self.player)
-            self.roll.target = Rules.agility_table[self.player.get_ag()]
+            self.roll.target = self.player.get_ag_target()
             
             if self.roll.is_d6_success(): 
                 self.game.report(Outcome(OutcomeType.SUCCESSFUL_HYPNOTIC_GAZE, player=self.player, rolls=[self.roll]))
