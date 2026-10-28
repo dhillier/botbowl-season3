@@ -69,6 +69,7 @@ class RollType(Enum):
     PASSING_ROLL = 35  # Added for Season 3 Passing Ability tests, October 2026.
     SECURE_BALL_ROLL = 36  # A fixed 2+ roll, not an Agility test.
     JUMP_ROLL = 37
+    STALLING_ROLL = 38
 
 
 class OutcomeType(Enum):
@@ -77,6 +78,9 @@ class OutcomeType(Enum):
     FAILED_JUMP = 1003
     BLITZ_TARGET_DECLARED = 1004
     BLITZ_DECLARATION_STARTED = 1005
+    FOREGO_ACTIVATION = 1006
+    CROWD_TAKES_ACTION = 1007
+    CROWD_MISSES = 1008
     HEADS_WON = 1
     HEADS_LOSS = 2
     WEATHER_SWELTERING_HEAT = 3
@@ -395,6 +399,7 @@ class ActionType(Enum):
     UNDO = 66
     START_SECURE_BALL = 67
     JUMP = 68
+    FOREGO_ACTIVATION = 69
 
 
 class WeatherType(Enum):

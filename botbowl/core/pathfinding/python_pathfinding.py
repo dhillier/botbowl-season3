@@ -167,9 +167,9 @@ class Node:
         self.rolls.append(target)
         self._apply_roll((7 - target) / 6, self.SURE_FEET, self.TRR)
 
-    def apply_dodge(self, target):
+    def apply_dodge(self, target, allow_dodge=True):
         self.rolls.append(target)
-        self._apply_roll((7 - target) / 6, self.DODGE, self.TRR)
+        self._apply_roll((7 - target) / 6, self.DODGE if allow_dodge else None, self.TRR)
 
     def apply_pickup(self, target):
         self.rolls.append(target)
@@ -223,6 +223,7 @@ class Pathfinder:
         self.locked_nodes = np.full((game.arena.height, game.arena.width), None)
         self.nodes = np.full((game.arena.height, game.arena.width), None)
         self.tzones = np.zeros((game.arena.height, game.arena.width), dtype=np.uint8)
+        self.tackle_zones = np.zeros_like(self.tzones)
         self.current_prob = 1
         self.open_set = PriorityQueue()
         self.risky_sets = {}
@@ -231,6 +232,8 @@ class Pathfinder:
             if p.team != player.team and p.has_tackle_zone():
                 for square in game.get_adjacent_squares(p.position):
                     self.tzones[square.y][square.x] += 1
+                    if game.is_season3 and p.has_usable_skill(Skill.TACKLE):
+                        self.tackle_zones[square.y][square.x] += 1
         self.gfi_target = None
 
     def get_path(self, target):
@@ -408,7 +411,7 @@ class Pathfinder:
             next_node.apply_gfi(self.gfi_target)
         if self.tzones[node.position.y][node.position.x] > 0:
             target = self._get_dodge_target(node.position, to_pos)
-            next_node.apply_dodge(target)
+            next_node.apply_dodge(target, not self.tackle_zones[node.position.y][node.position.x])
         if self.ball_position == to_pos:
             target = self._get_pickup_target(to_pos)
             next_node.apply_pickup(target)

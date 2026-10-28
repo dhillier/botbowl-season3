@@ -919,6 +919,38 @@ class Game:
             return turn.blitz_available
         return False
 
+    def can_score_without_dice(self, player: Player) -> bool:
+        """Season 3 stalling snapshot, independent of the declared action.
+
+        Search only ordinary movement within MA: no Rush, Dodge, jump or Block.
+        Entering a marked square is free; leaving it requires a Dodge.
+        """
+        if (player.position is None or not self.has_ball(player) or player.state.stunned or
+                player.state.in_air or player.state.taken_root or player.has_skill(Skill.NO_HANDS)):
+            return False
+        if any(player.has_skill(s) for s in (Skill.BONE_HEAD, Skill.REALLY_STUPID,
+                Skill.WILD_ANIMAL, Skill.TAKE_ROOT, Skill.BLOOD_LUST)):
+            return False
+        budget = player.num_moves_left()
+        if not player.state.up:
+            if player.get_ma() < 3 and not player.has_skill(Skill.JUMP_UP):
+                return False  # Standing up would require a roll.
+            budget -= 0 if player.has_skill(Skill.JUMP_UP) else 3
+        queue = deque([(player.position, budget)])
+        seen = {player.position}
+        endzone = self.get_opp_endzone_x(player.team)
+        while queue:
+            square, left = queue.popleft()
+            if square.x == endzone:
+                return True
+            if left <= 0 or self.num_tackle_zones_at(player, square):
+                continue
+            for destination in self.get_adjacent_squares(square, occupied=False):
+                if destination not in seen:
+                    seen.add(destination)
+                    queue.append((destination, left - 1))
+        return False
+
     def get_blitz_targets(self, player: Player) -> List[Player]:
         """Reachable standing targets, allowing stand-up, Rushes and jumps.
 
@@ -1990,12 +2022,14 @@ class Game:
         dice = self.num_block_dice(attacker, defender)
         push_squares = self.get_push_squares(attacker.position, defender.position)
         crowd_push = self.arena.board[push_squares[0].y][push_squares[0].x] == Tile.CROWD and not defender.has_skill(Skill.STAND_FIRM)
-        p_self = 1.0 / 6.0 if attacker.has_skill(Skill.BLOCK) else 2.0 / 6.0
-        p_opp = 2.0 / 6.0 if attacker.has_skill(Skill.BLOCK) else 2.0 / 6.0
+        p_self = 1.0 / 6.0 if attacker.has_usable_skill(Skill.BLOCK) else 2.0 / 6.0
+        p_opp = 2.0 / 6.0 if attacker.has_usable_skill(Skill.BLOCK) else 2.0 / 6.0
+        if self.is_season3 and not defender.has_usable_skill(Skill.BLOCK):
+            p_opp += 1.0 / 6.0  # Both Down depends on the defender's Block.
         if crowd_push:
             p_opp += 2.0 / 6.0
         if not crowd_push:
-            p_opp -= (1.0 / 6.0 if defender.has_skill(Skill.DODGE) and not attacker.has_skill(Skill.TACKLE) else 0.0)
+            p_opp -= (1.0 / 6.0 if defender.has_usable_skill(Skill.DODGE) and not attacker.has_usable_skill(Skill.TACKLE) else 0.0)
         if dice == 2:
             p_self -= (1.0 - p_self) * p_self
             p_opp += (1.0 - p_opp) * p_opp
@@ -2012,7 +2046,7 @@ class Game:
         p_fumble_self = 0.0
         if self.get_ball_carrier() == defender:
             p_fumble_opp = p_opp
-            if not crowd_push and attacker.has_skill(Skill.STRIP_BALL) and not defender.has_skill(Skill.SURE_HANDS):
+            if not crowd_push and attacker.has_skill(Skill.STRIP_BALL) and not defender.has_usable_skill(Skill.SURE_HANDS):
                 p_fumble_opp += 2.0 / 6.0
         elif self.get_ball_carrier() == attacker:
             p_fumble_self = p_self
@@ -2048,7 +2082,10 @@ class Game:
         ag_roll = max(2, min(6, ag_roll))
         successful_outcomes = 6 - (ag_roll - 1)
         p = successful_outcomes / 6.0
-        if allow_dodge_reroll and player.has_skill(Skill.DODGE) and not self.get_adjacent_opponents(player, down=False, skill=Skill.TACKLE):
+        tacklers = self.get_adjacent_opponents(player, down=False, skill=Skill.TACKLE)
+        if self.is_season3:
+            tacklers = [p for p in tacklers if p.has_tackle_zone() and p.has_usable_skill(Skill.TACKLE)]
+        if allow_dodge_reroll and player.can_use_skill(Skill.DODGE) and not tacklers:
             p += (1.0-p)*p
         elif allow_team_reroll and self.can_use_reroll(player.team):
             p += (1.0 - p) * p
@@ -2071,7 +2108,7 @@ class Game:
         ag_roll = max(2, min(6, ag_roll))
         successful_outcomes = 6 - (ag_roll - 1)
         p = successful_outcomes / 6.0
-        if allow_catch_reroll and player.has_skill(Skill.CATCH) and not (self.is_season3 and interception):
+        if allow_catch_reroll and player.has_usable_skill(Skill.CATCH) and not (self.is_season3 and interception):
             p += (1.0 - p) * p
         elif allow_team_reroll and self.can_use_reroll(player.team):
             p += (1.0 - p) * p
@@ -2106,7 +2143,7 @@ class Game:
         ag_roll = max(2, min(6, ag_roll))
         successful_outcomes = 6 - (ag_roll - 1)
         p = successful_outcomes / 6.0
-        if allow_pickup_reroll and player.has_skill(Skill.SURE_HANDS):
+        if allow_pickup_reroll and player.has_usable_skill(Skill.SURE_HANDS):
             p += (1.0 - p) * p
         elif allow_team_reroll and self.can_use_reroll(player.team):
             p += (1.0 - p) * p
@@ -2135,7 +2172,7 @@ class Game:
         ag_roll = max(2, min(6, ag_roll))
         successful_outcomes = 6 - (ag_roll - 1)
         p = successful_outcomes / 6.0
-        if allow_pass_reroll and player.has_skill(Skill.PASS):
+        if allow_pass_reroll and player.has_usable_skill(Skill.PASS):
             p += (1.0 - p) * p
         elif allow_team_reroll and self.can_use_reroll(player.team):
             p += (1.0 - p) * p

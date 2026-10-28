@@ -473,6 +473,9 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
         };
 
         $scope.actionButtonName = function actionButtonName(action_type){
+            if (action_type === "FOREGO_ACTIVATION") {
+                return "Forego activation";
+            }
             if (action_type === "START_SECURE_BALL") {
                 return "Secure the Ball";
             }
@@ -1004,7 +1007,7 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
         };
 
         $scope.playerReadyStateClass = function playerStateClass(player){
-            if (player.state.heated || player.state.bone_headed || player.state.hypnotized || player.state.used){
+            if (player.state.heated || player.state.bone_headed || player.state.hypnotized || player.state.distracted || player.state.used){
                 return "secondary";
             } else if (player.state.up){
                 return "success";
@@ -1017,6 +1020,8 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
         $scope.playerReadyStateName = function playerReadyStateName(player){
             if (player.state.heated){
                 return "Heated";
+            } else if (player.state.distracted){
+                return "Distracted";
             } else if (player.state.bone_headed){
                 return "Bone Headed";
             } else if (player.state.hypnotized){

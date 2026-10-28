@@ -1,6 +1,6 @@
 # Blood Bowl Season 3 — fixed-roster Bot Bowl migration
 
-Status: three implementation slices completed on 28 October 2026. The explicit Season 3 preview includes fixed Human characteristics/PA, passing/interception sequencing, catching, re-roll eligibility, Secure the Ball, declared Blitz targets, and jumping over downed players, with bot/pathfinding/web integration. The migration remains incomplete. Current coverage, interpretation decisions, validation, and remaining work are tracked in [docs/season3-migration.md](docs/season3-migration.md).
+Status: four implementation slices completed on 28 October 2026. The explicit Season 3 preview includes fixed Human characteristics/PA, passing/interception sequencing, catching, re-roll eligibility, Secure the Ball, declared Blitz targets, and jumping over downed players, stalling/Forego Activation, stunned recovery timing, and Human starting-skill status restrictions, with bot/pathfinding/web integration. The migration remains incomplete. Current coverage, interpretation decisions, validation, and remaining work are tracked in [docs/season3-migration.md](docs/season3-migration.md).
 
 ## Confirmed direction
 

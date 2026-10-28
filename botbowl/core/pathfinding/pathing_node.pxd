@@ -32,7 +32,7 @@ cdef extern from "pathing_node.h" namespace "node_ns":
         Node(shared_ptr[Node], Square, int, int, double) except +        # non-root node without block dice
 
         void apply_gfi(int)
-        void apply_dodge(int)
+        void apply_dodge(int, bint)
         void apply_pickup(int)
         void apply_handoff(int)
         void apply_foul(int)

@@ -530,6 +530,9 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
         };
 
         $scope.actionButtonName = function actionButtonName(action_type){
+            if (action_type === "FOREGO_ACTIVATION") {
+                return "Forego activation";
+            }
             if (action_type === "START_SECURE_BALL") {
                 return "Secure the Ball";
             }
@@ -1061,7 +1064,7 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
         };
 
         $scope.playerReadyStateClass = function playerStateClass(player){
-            if (player.state.heated || player.state.bone_headed || player.state.hypnotized || player.state.used){
+            if (player.state.heated || player.state.bone_headed || player.state.hypnotized || player.state.distracted || player.state.used){
                 return "secondary";
             } else if (player.state.up){
                 return "success";
@@ -1074,6 +1077,8 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
         $scope.playerReadyStateName = function playerReadyStateName(player){
             if (player.state.heated){
                 return "Heated";
+            } else if (player.state.distracted){
+                return "Distracted";
             } else if (player.state.bone_headed){
                 return "Bone Headed";
             } else if (player.state.hypnotized){
@@ -1834,6 +1839,9 @@ appServices.factory('GameLogService', function() {
             'BLITZ_DECLARATION_STARTED': "<player> is declaring a Blitz. Choose its target.",
             'BLITZ_TARGET_DECLARED': "<player> declares a Blitz against <opp_player>.",
             'SUCCESSFUL_JUMP': "<player> successfully jumps over a downed player.",
+            'FOREGO_ACTIVATION': "<player> foregoes activation.",
+            'CROWD_TAKES_ACTION': "The crowd hits <player> for stalling!",
+            'CROWD_MISSES': "The crowd misses <player> after stalling.",
             'FAILED_JUMP': "<player> fails to jump over a downed player.",
             'BLOCK_ACTION_STARTED': "<player> starts a block action.",
             'BLITZ_ACTION_STARTED': "<player> starts a blitz action.",

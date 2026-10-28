@@ -86,9 +86,9 @@ namespace node_ns {
         rolls.push_back(target);
         _apply_roll((7.0-target)/6.0, SURE_FEET, TRR);
     }
-    void Node::apply_dodge(int target){
+    void Node::apply_dodge(int target, bool allow_dodge){
         rolls.push_back(target);
-        _apply_roll((7.0-target)/6.0, DODGE, TRR);
+        _apply_roll((7.0-target)/6.0, allow_dodge ? DODGE : NO_SKILL_REROLL, TRR);
     }
     void Node::apply_pickup(int target){
         rolls.push_back(target);

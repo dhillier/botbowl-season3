@@ -510,11 +510,11 @@ class Block(Procedure):
                 return False
 
             # Attacker wrestle - Don't use if only one with Block skill
-            if self.attacker.has_skill(Skill.WRESTLE) and not (self.attacker.has_skill(Skill.BLOCK) and not self.defender.has_skill(Skill.BLOCK)):
+            if self.attacker.has_skill(Skill.WRESTLE) and not (self.attacker.has_usable_skill(Skill.BLOCK) and not self.defender.has_usable_skill(Skill.BLOCK)):
                 self.waiting_wrestle_attacker = True
 
             # Defender wrestle - Don't use if only one with Block skill
-            if self.defender.has_skill(Skill.WRESTLE) and not (self.defender.has_skill(Skill.BLOCK) and not self.attacker.has_skill(Skill.BLOCK)):
+            if self.defender.has_skill(Skill.WRESTLE) and not (self.defender.has_usable_skill(Skill.BLOCK) and not self.attacker.has_usable_skill(Skill.BLOCK)):
                 if self.blitz and self.attacker.has_skill(Skill.JUGGERNAUT):
                     self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.attacker, skill=Skill.JUGGERNAUT))
                 else:
@@ -530,7 +530,7 @@ class Block(Procedure):
             return True
 
         elif self.selected_die == BBDieResult.DEFENDER_STUMBLES:
-            Push(self.game, self.attacker, self.defender, knock_down=(not self.defender.has_skill(Skill.DODGE)) or self.attacker.has_skill(Skill.TACKLE),
+            Push(self.game, self.attacker, self.defender, knock_down=(not self.defender.has_usable_skill(Skill.DODGE)) or self.attacker.has_usable_skill(Skill.TACKLE),
                  blitz=self.blitz)
             return True
 
@@ -542,12 +542,12 @@ class Block(Procedure):
 
     def both_down(self):
         # Attacker down
-        if not self.attacker.has_skill(Skill.BLOCK):
+        if not self.attacker.has_usable_skill(Skill.BLOCK):
             KnockDown(self.game, self.attacker, inflictor=self.defender, turnover=True)
         else:
             self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.attacker, skill=Skill.BLOCK))
         # Defender down
-        if not self.defender.has_skill(Skill.BLOCK):
+        if not self.defender.has_usable_skill(Skill.BLOCK):
             KnockDown(self.game, self.defender, inflictor=self.attacker)
         else:
             self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.defender, skill=Skill.BLOCK))
@@ -2570,9 +2570,11 @@ class PlaceBall(Procedure):
 
 class EndPlayerTurn(Procedure):
 
-    def __init__(self, game, player):
+    def __init__(self, game, player, foregone=False):
         super().__init__(game)
         self.player = player
+        self.stalling_checked = False
+        self.foregone = foregone
 
     def step(self, action):
         if self.game.state.player_action_type == PlayerActionType.SECURE_BALL:
@@ -2581,9 +2583,17 @@ class EndPlayerTurn(Procedure):
                 Turnover(self.game)
                 return True
         
-        if self.player.state.blood_lust: 
+        if self.player.state.blood_lust and not self.foregone:
             EatThrall(self.game, self.player)
             return False
+
+        if self.game.is_season3 and not self.stalling_checked:
+            self.stalling_checked = True
+            passed_ball = (self.game.state.player_action_type in (PlayerActionType.PASS, PlayerActionType.HANDOFF)
+                           and not self.game.has_ball(self.player))
+            if self.player.state.could_score_at_activation and not passed_ball:
+                CrowdTakesAction(self.game, self.player)
+                return False
 
         self.game.purge_stack_until(Turn, inclusive=False)
         self.player.state.used = True
@@ -2593,6 +2603,26 @@ class EndPlayerTurn(Procedure):
         self.player.state.squares_moved.clear()
         self.game.state.player_action_type = None
         self.player.state.has_blocked = False
+        self.player.state.could_score_at_activation = False
+        return True
+
+
+class CrowdTakesAction(Procedure):
+    """A crowd roll, not a player test: no skill/team re-roll or natural-6 override."""
+
+    def __init__(self, game, player):
+        super().__init__(game)
+        self.player = player
+
+    def step(self, action):
+        roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.STALLING_ROLL,
+                        highest_succeed=False, lowest_fail=False)
+        roll.target = self.player.team.state.turn
+        hit = roll.get_sum() >= roll.target
+        self.game.report(Outcome(OutcomeType.CROWD_TAKES_ACTION if hit else OutcomeType.CROWD_MISSES,
+                                 player=self.player, rolls=[roll]))
+        if hit:
+            KnockDown(self.game, self.player, turnover=True)
         return True
 
 
@@ -2731,7 +2761,7 @@ class MoveAction(Procedure):
         if self.player_action_type == PlayerActionType.MOVE:
             self.game.report(Outcome(OutcomeType.MOVE_ACTION_STARTED, player=self.player))
             self.game.state.player_action_type = PlayerActionType.MOVE
-        self.can_undo = self.game.get_team_agent(self.player.team).human and not self.player.state.failed_nega_trait_this_turn
+        self.can_undo = not self.game.is_season3 and self.game.get_team_agent(self.player.team).human and not self.player.state.failed_nega_trait_this_turn
 
     def step(self, action):
 
@@ -3067,7 +3097,7 @@ class ThrowBombAction(Procedure):
     def start(self):
         self.game.report(Outcome(OutcomeType.THROW_BOMB_ACTION_STARTED, player=self.player))
         self.game.state.player_action_type = PlayerActionType.THROW_BOMB
-        self.can_undo = self.game.get_team_agent(self.player.team).human
+        self.can_undo = not self.game.is_season3 and self.game.get_team_agent(self.player.team).human
 
     def step(self, action):
         if action.action_type == ActionType.THROW_BOMB:
@@ -3147,7 +3177,7 @@ class BlockAction(Procedure):
     def start(self):
         self.game.report(Outcome(OutcomeType.BLOCK_ACTION_STARTED, player=self.player))
         self.game.state.player_action_type = PlayerActionType.BLOCK
-        self.can_undo = self.game.get_team_agent(self.player.team).human
+        self.can_undo = not self.game.is_season3 and self.game.get_team_agent(self.player.team).human
 
     def step(self, action):
 
@@ -3432,7 +3462,7 @@ class Push(Procedure):
         self.squares = None
         self.selector = game.get_active_player()
         self.crowd = False
-        self.strip_ball_condition = self.pusher.has_skill(Skill.STRIP_BALL) and not self.player.has_skill(Skill.SURE_HANDS) and not self.knock_down and not self.chain and self.game.has_ball(self.player) 
+        self.strip_ball_condition = self.pusher.has_skill(Skill.STRIP_BALL) and not self.player.has_usable_skill(Skill.SURE_HANDS) and not self.knock_down and not self.chain and self.game.has_ball(self.player)
         
     def step(self, action):
 
@@ -3972,7 +4002,16 @@ class EndTurn(Procedure):
 
         # Remove all procs in the current turn - including the current turn proc.
         # In rare cases there is no Turn proc yet - e.g. during a kickoff
-        if self.game.get_current_turn_proc() is not None:
+        turn = self.game.get_current_turn_proc()
+        if turn is not None:
+            if self.game.is_season3:
+                recovered = False
+                for player in turn.stunned_at_start:
+                    if player.state.stunned:
+                        player.state.stunned = False
+                        recovered = True
+                if recovered:
+                    self.game.report(Outcome(OutcomeType.STUNNED_TURNED, team=turn.team))
             self.game.purge_stack_until(Turn, inclusive=True)
 
         # Reset turn
@@ -4017,6 +4056,7 @@ class Turn(Procedure):
         self.handoff_available = not quick_snap
         self.foul_available = not quick_snap
         self.secure_ball_available = game.is_season3 and not quick_snap and not blitz
+        self.stunned_at_start = []
 
     def start(self):
         self.game.state.current_team = self.team
@@ -4028,7 +4068,10 @@ class Turn(Procedure):
         else:
             self.game.report(Outcome(OutcomeType.TURN_START, team=self.team, n=self.turn))
             self.team.state.turn = self.turn
-            TurnStunned(self.game, self.team)
+            if self.game.is_season3:
+                self.stunned_at_start = [p for p in self.team.players if p.state.stunned]
+            else:
+                TurnStunned(self.game, self.team)
 
     def step(self, action):
 
@@ -4045,6 +4088,12 @@ class Turn(Procedure):
             
             return True
 
+        if self.game.is_season3 and action.action_type == ActionType.FOREGO_ACTIVATION:
+            action.player.state.could_score_at_activation = self.game.can_score_without_dice(action.player)
+            self.game.report(Outcome(OutcomeType.FOREGO_ACTIVATION, player=action.player))
+            EndPlayerTurn(self.game, action.player, foregone=True)
+            return False
+
         if self.game.is_season3 and action.action_type == ActionType.START_BLITZ:
             self.blitz_available = False
             BlitzDeclaration(self.game, action.player, self)
@@ -4052,6 +4101,9 @@ class Turn(Procedure):
         return self._start_player_action(action)
 
     def _start_player_action(self, action, blitz_target=None):
+        if self.game.is_season3:
+            action.player.state.could_score_at_activation = (
+                not self.quick_snap and not self.blitz and self.game.can_score_without_dice(action.player))
         action.player.state.hypnotized = False
         if self.game.is_season3:
             action.player.state.distracted = False
@@ -4112,11 +4164,15 @@ class Turn(Procedure):
         handoff_players = []
         foul_players = []
         bomb_players = []
+        forego_players = []
         for player in self.game.get_players_on_pitch(self.team):
+            if self.game.is_season3 and player.state.stunned:
+                continue
             if self.blitz:
                 if self.game.num_tackle_zones_in(player) > 0:
                     continue
             if not player.state.used:
+                forego_players.append(player)
                 if not player.state.taken_root:
                     move_players.append(player)
                 if self.blitz_available and not player.state.taken_root:
@@ -4138,6 +4194,8 @@ class Turn(Procedure):
                     bomb_players.append(player)
 
         actions = []
+        if self.game.is_season3 and not self.quick_snap and not self.blitz and forego_players:
+            actions.append(ActionChoice(ActionType.FOREGO_ACTIVATION, team=self.team, players=forego_players))
         secure_players = [p for p in move_players if self.game.can_secure_ball(p)]
         if secure_players:
             actions.append(ActionChoice(ActionType.START_SECURE_BALL, team=self.team, players=secure_players))
@@ -4422,6 +4480,8 @@ class Reroll(Procedure):
         if type(self.context) == Dodge and self.player.can_use_skill(Skill.DODGE):
             # Get players with tackle
             tacklers = self.game.get_adjacent_opponents(self.player, down=False, skill=Skill.TACKLE)
+            if self.game.is_season3:
+                tacklers = [p for p in tacklers if p.has_tackle_zone() and p.has_usable_skill(Skill.TACKLE)]
             if len(tacklers) == 0:
                 self.player.use_skill(Skill.DODGE)
                 self.use_reroll = True

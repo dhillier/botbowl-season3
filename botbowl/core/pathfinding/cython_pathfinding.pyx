@@ -139,6 +139,7 @@ cdef class Pathfinder:
     cdef int ma, gfis, dodge_target, pitch_width, pitch_height, endzone_x, gfi_target
     cdef double current_prob
     cdef int tzones[17][28] # init as zero
+    cdef int tackle_zones[17][28]
     cdef Square ball_pos, start_pos
     cdef Square target_square
     cdef int target_x
@@ -192,6 +193,8 @@ cdef class Pathfinder:
             if p.team != player.team and p.has_tackle_zone():
                 for square in game.get_adjacent_squares(p.position):
                     self.tzones[square.y][square.x] += 1
+                    if game.is_season3 and p.has_usable_skill(table.Skill.TACKLE):
+                        self.tackle_zones[square.y][square.x] += 1
 
     cpdef get_path(self, object target):
         if type(target) == model.Square:
@@ -389,7 +392,7 @@ cdef class Pathfinder:
             next_node.get().apply_gfi(self.gfi_target)
         if self.tzones[node.get().position.y][node.get().position.x] > 0:
             target = self._get_dodge_target(node.get().position, to_pos)
-            next_node.get().apply_dodge(target)
+            next_node.get().apply_dodge(target, self.tackle_zones[node.get().position.y][node.get().position.x] == 0)
         if to_pos == self.ball_pos:
             target = self._get_pickup_target(to_pos)
             next_node.get().apply_pickup(target)

@@ -218,6 +218,7 @@ class PlayerState(Reversible):
         self.spp_earned = 0
         self.moves = 0
         self.stunned = False
+        self.could_score_at_activation = False
         self.bone_headed = False
         self.hypnotized = False
         self.distracted = False  # Season 3; legacy status aliases remain supported.
@@ -241,6 +242,7 @@ class PlayerState(Reversible):
             'in_air': self.in_air,
             'used': self.used,
             'stunned': self.stunned,
+            'could_score_at_activation': self.could_score_at_activation,
             'knocked_out': self.knocked_out,
             'bone_headed': self.bone_headed,
             'hypnotized': self.hypnotized,
@@ -261,6 +263,7 @@ class PlayerState(Reversible):
 
     def reset(self):
         self.up = True
+        self.could_score_at_activation = False
         self.used = False
         self.in_air = False
         self.stunned = False
@@ -279,6 +282,7 @@ class PlayerState(Reversible):
         self.has_blocked = False
 
     def reset_turn(self):
+        self.could_score_at_activation = False
         self.moves = 0
         self.used = False
         self.has_blocked = False
@@ -1245,7 +1249,19 @@ class Player(Piece, Reversible):
         return skill in self.state.used_skills
 
     def can_use_skill(self, skill):
-        return self.has_skill(skill) and not self.has_used_skill(skill)
+        return self.has_usable_skill(skill) and not self.has_used_skill(skill)
+
+    def has_usable_skill(self, skill):
+        """Availability without imposing a once-per-turn limit.
+
+        These are the six Active skills on the selected Season 3 Human roster.
+        Keep other skills/legacy profiles on their existing behavior pending audit.
+        """
+        if self.role.target_characteristics and skill in (
+                Skill.BLOCK, Skill.DODGE, Skill.TACKLE, Skill.CATCH, Skill.PASS, Skill.SURE_HANDS):
+            if not self.state.up or self.state.stunned or self.is_distracted():
+                return False
+        return self.has_skill(skill)
 
     def use_skill(self, skill):
         return self.state.used_skills.add(skill)
