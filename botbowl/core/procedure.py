@@ -1909,7 +1909,8 @@ class Move(Procedure):
             if self.player.has_skill(Skill.NO_HANDS):
                 Bounce(self.game, ball)
             else:
-                Pickup(self.game, ball, self.player)
+                Pickup(self.game, ball, self.player,
+                       secure=self.game.state.player_action_type == PlayerActionType.SECURE_BALL)
 
         elif self.game.has_ball(self.player) and self.game.is_touchdown(self.player):
 
@@ -2410,26 +2411,30 @@ class Season3PassAttempt(PassAttempt):
 
 class Pickup(Procedure):
 
-    def __init__(self, game, ball, player):
+    def __init__(self, game, ball, player, secure=False):
         super().__init__(game)
         self.ball = ball
         self.player = player
         self.roll = None
         self.reroll = None
+        self.secure = secure
 
     def step(self, action):
 
         # Otherwise roll if player hasn't rolled
         if self.roll is None:
 
-            self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.AGILITY_ROLL)
-            self.roll.target = self.player.get_ag_target()
-            self.roll.modifiers = self.game.get_pickup_modifiers(self.player, self.ball.position)
+            self.roll = DiceRoll([D6(self.game.rng)], roll_type=(
+                RollType.SECURE_BALL_ROLL if self.secure else RollType.AGILITY_ROLL))
+            self.roll.target = 2 if self.secure else self.player.get_ag_target()
+            self.roll.modifiers = 0 if self.secure else self.game.get_pickup_modifiers(self.player, self.ball.position)
 
             # Roll
             if self.roll.is_d6_success():
                 self.game.report(Outcome(OutcomeType.SUCCESSFUL_PICKUP, player=self.player, rolls=[self.roll]))
                 self.ball.is_carried = True
+                if self.secure:
+                    EndPlayerTurn(self.game, self.player)
                 if self.game.is_touchdown(self.player):
                     Touchdown(self.game, self.player)
                 return True
@@ -2526,6 +2531,11 @@ class EndPlayerTurn(Procedure):
         self.player = player
 
     def step(self, action):
+        if self.game.state.player_action_type == PlayerActionType.SECURE_BALL:
+            ball = self.game.get_ball()
+            if not ball.is_carried or ball.position != self.player.position:
+                Turnover(self.game)
+                return True
         
         if self.player.state.blood_lust: 
             EatThrall(self.game, self.player)
@@ -2803,7 +2813,8 @@ class MoveAction(Procedure):
             return []  # No actions -> Continue path
         actions = []
         if self.game.is_quick_snap() or not self.game.config.pathfinding_enabled:
-            actions = self.game.get_adjacent_move_actions(self.player)
+            actions = self.game.get_adjacent_move_actions(
+                self.player, secure_ball=self.player_action_type == PlayerActionType.SECURE_BALL)
         else:
             can_block = self.player_action_type == PlayerActionType.BLITZ and not self.player.state.has_blocked
             can_foul = self.player_action_type == PlayerActionType.FOUL
@@ -2814,6 +2825,7 @@ class MoveAction(Procedure):
                                     can_block=can_block,
                                     can_handoff=can_handoff,
                                     can_foul=can_foul,
+                                    secure_ball=self.player_action_type == PlayerActionType.SECURE_BALL,
                                     trr=False)
             paths = pathfinder.get_paths()
             self.paths = {path.get_last_step(): path for path in paths}
@@ -2828,6 +2840,36 @@ class MoveAction(Procedure):
             actions.append(ActionChoice(ActionType.UNDO, team=self.player.team))
 
         return actions
+
+
+class SecureBallAction(MoveAction):
+    """A Move Action ending in a mandatory fixed 2+ pickup and activation end."""
+
+    def __init__(self, game, player):
+        super().__init__(game, player, player_action_type=PlayerActionType.SECURE_BALL)
+
+    def start(self):
+        self.game.state.player_action_type = PlayerActionType.SECURE_BALL
+        self.game.report(Outcome(OutcomeType.SECURE_BALL_ACTION_STARTED, player=self.player))
+        self.can_undo = False
+
+    def _at_ball(self):
+        ball = self.game.get_ball()
+        return self.player.state.up and ball.on_ground and not ball.is_carried and ball.position == self.player.position
+
+    def step(self, action):
+        if self._at_ball():
+            Pickup(self.game, self.game.get_ball(), self.player, secure=True)
+            return False
+        return super().step(action)
+
+    def available_actions(self):
+        if self._at_ball():
+            return []  # Mandatory pickup, including when starting on the ball.
+        if not self.player.state.up:
+            return self.game.get_stand_up_actions(self.player) + [
+                ActionChoice(ActionType.END_PLAYER_TURN, team=self.player.team)]
+        return super().available_actions()
 
 
 class HandoffAction(MoveAction):
@@ -3894,6 +3936,7 @@ class Turn(Procedure):
         self.pass_available = not quick_snap
         self.handoff_available = not quick_snap
         self.foul_available = not quick_snap
+        self.secure_ball_available = game.is_season3 and not quick_snap and not blitz
 
     def start(self):
         self.game.state.current_team = self.team
@@ -3923,12 +3966,19 @@ class Turn(Procedure):
             return True
 
         action.player.state.hypnotized = False
+        if self.game.is_season3:
+            action.player.state.distracted = False
 
         self.game.state.active_player = action.player
             
         # Start movement action
         if action.action_type == ActionType.START_MOVE:
             MoveAction(self.game, action.player)
+
+        if action.action_type == ActionType.START_SECURE_BALL:
+            # Spend at declaration, even if a pre-action trait ends activation.
+            self.secure_ball_available = False
+            SecureBallAction(self.game, action.player)
 
         # Start blitz action
         if action.action_type == ActionType.START_BLITZ:
@@ -4000,6 +4050,9 @@ class Turn(Procedure):
                     bomb_players.append(player)
 
         actions = []
+        secure_players = [p for p in move_players if self.game.can_secure_ball(p)]
+        if secure_players:
+            actions.append(ActionChoice(ActionType.START_SECURE_BALL, team=self.team, players=secure_players))
         if len(move_players) > 0:
             actions.append(ActionChoice(ActionType.START_MOVE, team=self.team, players=move_players))
         if len(block_players) > 0:
@@ -4297,7 +4350,7 @@ class Reroll(Procedure):
             if self.player.can_use_skill(Skill.CATCH):
                 self.use_reroll = True
                 self.skill = Skill.CATCH
-        if type(self.context) == Pickup and self.player.can_use_skill(Skill.SURE_HANDS):
+        if type(self.context) == Pickup and not self.context.secure and self.player.can_use_skill(Skill.SURE_HANDS):
             self.use_reroll = True
             self.skill = Skill.SURE_HANDS
         if type(self.context) == GFI and self.player.can_use_skill(Skill.SURE_FEET):

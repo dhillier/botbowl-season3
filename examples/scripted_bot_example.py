@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for Season 3 Secure the Ball planning, October 2026.
 from typing import List
 
 import botbowl
@@ -324,6 +325,28 @@ class MyScriptedBot(ProcBot):
                                 pickup_p = p
                                 pickup_player = player
                                 pickup_path = path
+            # Secure the Ball trades further movement for a fixed 2+ pickup.
+            # Compare against every available ordinary recovery, including a
+            # team-mate with Sure Hands who might be safer and can keep moving.
+            secure_choices = [a for a in game.get_available_actions()
+                              if a.action_type == ActionType.START_SECURE_BALL]
+            best_secure = None
+            for choice in secure_choices:
+                for player in choice.players:
+                    if player.position == game.get_ball_position():
+                        self.actions.append(Action(ActionType.START_SECURE_BALL, player=player))
+                        if not player.state.up:
+                            self.actions.append(Action(ActionType.STAND_UP))
+                        return
+                    path = game.get_secure_ball_path(player)
+                    if path is not None and (pickup_p is None or path.prob > pickup_p + 1e-9):
+                        if best_secure is None or path.prob > best_secure[1].prob:
+                            best_secure = (player, path)
+            if best_secure is not None and best_secure[1].prob > 0.33:
+                player, path = best_secure
+                self.actions.append(Action(ActionType.START_SECURE_BALL, player=player))
+                self.actions.extend(path_to_move_actions(game, player, path))
+                return  # Success ends this activation; never queue follow-on movement.
             if pickup_player is not None and pickup_p > 0.33:
                 self.actions.append(Action(ActionType.START_MOVE, player=pickup_player))
                 self.actions.extend(path_to_move_actions(game, pickup_player, pickup_path))

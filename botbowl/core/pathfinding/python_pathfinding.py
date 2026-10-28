@@ -200,7 +200,7 @@ class Pathfinder:
                   Square(1, 0),
                   Square(1, 1)]
 
-    def __init__(self, game, player, trr=False, directly_to_adjacent=False, can_block=False, can_handoff=False, can_foul=False):
+    def __init__(self, game, player, trr=False, directly_to_adjacent=False, can_block=False, can_handoff=False, can_foul=False, secure_ball=False):
         self.game = game
         self.player = player
         self.trr = trr
@@ -208,6 +208,7 @@ class Pathfinder:
         self.can_block = can_block
         self.can_handoff = can_handoff
         self.can_foul = can_foul
+        self.secure_ball = secure_ball
         self.carries_ball = None
         self.endzone_x = None
         self.ball_position = None
@@ -242,7 +243,7 @@ class Pathfinder:
 
         can_dodge = self.player.has_skill(Skill.DODGE) and Skill.DODGE not in self.player.state.used_skills
         can_sure_feet = self.player.has_skill(Skill.SURE_FEET) and Skill.SURE_FEET not in self.player.state.used_skills
-        can_sure_hands = self.player.has_skill(Skill.SURE_HANDS)
+        can_sure_hands = self.player.has_skill(Skill.SURE_HANDS) and not self.secure_ball
         rr_states = {(self.trr, can_dodge, can_sure_feet, can_sure_hands): 1}  # RRs left and probability of success
         node = Node(None,
                     position=self.player.position,
@@ -268,6 +269,8 @@ class Pathfinder:
         return self._collect_paths(target)
 
     def _get_pickup_target(self, to_pos):
+        if self.secure_ball:
+            return 2
         zones_to = self.tzones[to_pos.y][to_pos.x]
         modifiers = 0 if self.game.is_season3 else 1
         if not self.player.has_skill(Skill.BIG_HAND):

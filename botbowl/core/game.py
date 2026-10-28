@@ -943,6 +943,38 @@ class Game:
             return turn.pass_available
         return False
 
+    def is_secure_ball_available(self) -> bool:
+        turn = self.current_turn()
+        return bool(self.is_season3 and turn is not None and turn.secure_ball_available)
+
+    def can_secure_ball(self, player: Player) -> bool:
+        """Declaration eligibility, including a possible route to the loose ball."""
+        if (not self.is_secure_ball_available() or player.team != self.state.current_team or
+                player.position is None or player.state.used or player.state.stunned or
+                player.state.in_air or player.state.taken_root or player.has_skill(Skill.NO_HANDS) or
+                any(k.casefold() == 'big guy' for k in player.role.keywords)):
+            return False
+        ball = self.get_ball()
+        if ball is None or not ball.on_ground or ball.is_carried or self.is_out_of_bounds(ball.position):
+            return False
+        for opponent in self.get_players_on_pitch(self.get_opp_team(player.team)):
+            if opponent.state.up and not opponent.is_distracted() and opponent.position.distance(ball.position) <= 2:
+                return False
+        if player.position == ball.position:
+            return True
+        if player.position.distance(ball.position) > player.num_moves_left(include_gfi=True):
+            return False
+        return self.get_secure_ball_path(player) is not None
+
+    def get_secure_ball_path(self, player: Player, allow_team_reroll: bool = False):
+        """A route whose pickup is fixed 2+ and cannot use Sure Hands.
+
+        Declaration checks belong to can_secure_ball; this also serves the
+        active action after the turn's declaration allowance has been spent.
+        """
+        return Pathfinder(self, player, trr=allow_team_reroll and self.can_use_reroll(player.team),
+                          secure_ball=True).get_path(self.get_ball_position())
+
     def use_pass_action(self) -> None:
         """
         Use this turn's pass action.
@@ -1664,6 +1696,9 @@ class Game:
         """
         :return: the ball carrier if any - otherwise None.
         """
+        ball = self.get_ball()
+        if self.is_season3 and (ball is None or not ball.is_carried):
+            return None
         ball_position = self.get_ball_position()
         if ball_position is None:
             return None
@@ -2442,7 +2477,7 @@ class Game:
             return [ActionChoice(ActionType.STAND_UP, team=player.team, rolls=rolls)]
         return []
 
-    def get_adjacent_move_actions(self, player: Player) -> List[ActionChoice]:
+    def get_adjacent_move_actions(self, player: Player, secure_ball: bool = False) -> List[ActionChoice]:
         quick_snap = self.is_quick_snap()
         actions = []
         move_positions = []
@@ -2470,7 +2505,7 @@ class Game:
                     if ball_at is not None and ball_at.on_ground:
                         target = player.get_ag_target()
                         modifiers = self.get_pickup_modifiers(player, square)
-                        rolls.append(min(6, max(2, target - modifiers)))
+                        rolls.append(2 if secure_ball else min(6, max(2, target - modifiers)))
                 d6_rolls.append(rolls)
             if len(move_positions) > 0:
                 actions.append(ActionChoice(ActionType.MOVE, team=player.team,

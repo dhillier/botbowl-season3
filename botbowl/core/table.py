@@ -67,9 +67,11 @@ class RollType(Enum):
     BOMB_ROLL = 33
     LAND_ROLL = 34
     PASSING_ROLL = 35  # Added for Season 3 Passing Ability tests, October 2026.
+    SECURE_BALL_ROLL = 36  # A fixed 2+ roll, not an Agility test.
 
 
 class OutcomeType(Enum):
+    SECURE_BALL_ACTION_STARTED = 1001  # Season 3 migration, October 2026.
     HEADS_WON = 1
     HEADS_LOSS = 2
     WEATHER_SWELTERING_HEAT = 3
@@ -259,6 +261,7 @@ class PlayerActionType(Enum):
     HANDOFF = 5
     FOUL = 6
     THROW_BOMB = 7
+    SECURE_BALL = 8
 
 
 class PhysicalState(Enum):
@@ -385,6 +388,7 @@ class ActionType(Enum):
     PICKUP_TEAM_MATE = 64
     THROW_TEAM_MATE = 65
     UNDO = 66
+    START_SECURE_BALL = 67
 
 
 class WeatherType(Enum):

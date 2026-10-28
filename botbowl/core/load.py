@@ -66,7 +66,8 @@ def load_rule_set(name, debug=False, all_rules=True):
             race.roles.append(Role(
                 profile['name'], ['Human'], profile['ma'], profile['st'],
                 profile['ag'], profile['av'], [parse_enum(Skill, s) for s in profile['skills']],
-                profile['cost'], False, pa=profile['pa'], target_characteristics=True))
+                profile['cost'], False, pa=profile['pa'], target_characteristics=True,
+                keywords=profile.get('keywords', [])))
         # Only the selected fixed roster is supported; no league/star-player data.
         return RuleSet(name, races=[race], star_players=[], inducements=[],
                        spp_actions={}, spp_levels={}, improvements={})

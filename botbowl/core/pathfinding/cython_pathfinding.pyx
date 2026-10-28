@@ -134,7 +134,7 @@ cdef Path create_path(NodePtr node):
 
 cdef class Pathfinder:
     cdef public object game, player, players_on_pitch
-    cdef bint trr, can_block, can_handoff, can_foul, target_found, target_is_int, target_is_square, has_target, directly_to_adjacent, is_stunty, carries_ball
+    cdef bint trr, can_block, can_handoff, can_foul, target_found, target_is_int, target_is_square, has_target, directly_to_adjacent, is_stunty, carries_ball, secure_ball
     cdef int ma, gfis, dodge_target, pitch_width, pitch_height, endzone_x, gfi_target
     cdef double current_prob
     cdef int tzones[17][28] # init as zero
@@ -152,7 +152,7 @@ cdef class Pathfinder:
                 self.locked_nodes[i][j].reset()
                 self.nodes[i][j].reset()
 
-    def __init__(self, game, player, trr=False, directly_to_adjacent=False, can_block=False, can_handoff=False, can_foul=False):
+    def __init__(self, game, player, trr=False, directly_to_adjacent=False, can_block=False, can_handoff=False, can_foul=False, secure_ball=False):
 
         self.players_on_pitch = game.state.pitch.board
 
@@ -179,6 +179,7 @@ cdef class Pathfinder:
         self.can_block = can_block
         self.can_handoff = can_handoff
         self.can_foul = can_foul
+        self.secure_ball = secure_ball
         self.is_stunty = player.has_skill(table.Skill.STUNTY)
         self.directly_to_adjacent = directly_to_adjacent
         self.dodge_target = self.player.get_ag_target() - (0 if self.game.is_season3 else 1)
@@ -221,7 +222,7 @@ cdef class Pathfinder:
 
         can_dodge = self.player.has_skill(table.Skill.DODGE) and table.Skill.DODGE not in self.player.state.used_skills
         can_sure_feet = self.player.has_skill(table.Skill.SURE_FEET) and table.Skill.SURE_FEET not in self.player.state.used_skills
-        can_sure_hands = self.player.has_skill(table.Skill.SURE_HANDS)
+        can_sure_hands = self.player.has_skill(table.Skill.SURE_HANDS) and not self.secure_ball
 
         # Create root node
         node = make_shared[Node](start_square, self.ma, self.gfis, 0, self.trr, can_dodge, can_sure_feet, can_sure_hands, self.can_foul, self.can_block, self.can_handoff)
@@ -242,6 +243,8 @@ cdef class Pathfinder:
 
     cdef int _get_pickup_target(self, Square to_pos):
         cdef int target = self.dodge_target + self.tzones[to_pos.y][to_pos.x]
+        if self.secure_ball:
+            return 2
         if self.game.state.weather == table.WeatherType.POURING_RAIN:
             target += 1
         return min(6, max(2, target))

@@ -56,6 +56,7 @@ app.config(['$locationProvider', '$routeProvider',
 
 
 
+// Modified for the Season 3 Secure the Ball action, October 2026.
 appControllers.controller('GameListCtrl', ['$scope', '$window', 'GameService', 'ReplayService',
     function GameListCtrl($scope, $window, GameService, ReplayService) {
         $scope.games = [];
@@ -529,6 +530,9 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
         };
 
         $scope.actionButtonName = function actionButtonName(action_type){
+            if (action_type === "START_SECURE_BALL") {
+                return "Secure the Ball";
+            }
             if (action_type === "USE_REROLL"){
                 return 'Re-roll';
             } else if (action_type === "DONT_USE_REROLL"){
@@ -1426,7 +1430,7 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
                 }
                 return true;
             }
-            if (action.action_type !== "START_GAME" && action.action_type.indexOf("START_") > -1){
+            if (action.action_type !== "START_GAME" && action.action_type !== "START_SECURE_BALL" && action.action_type.indexOf("START_") > -1){
                 return false;
             }
             // If no args -> show
@@ -1648,6 +1652,7 @@ app.filter('reverse', function() {
   };
 });
 
+// Modified for the Season 3 Secure the Ball action log, October 2026.
 appServices.factory('GameService', function($http) {
     return {
         get: function(id) {
@@ -1825,6 +1830,7 @@ appServices.factory('GameLogService', function() {
             'HANDOFF': "<player> handed of the ball off to <opp_player>.",
             'END_PLAYER_TURN': "<players> turn is over.",
             'MOVE_ACTION_STARTED': "<player> starts a movement action.",
+            'SECURE_BALL_ACTION_STARTED': "<player> starts a Secure the Ball action.",
             'BLOCK_ACTION_STARTED': "<player> starts a block action.",
             'BLITZ_ACTION_STARTED': "<player> starts a blitz action.",
             'PASS_ACTION_STARTED': "<player> starts a pass action.",

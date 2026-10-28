@@ -13,6 +13,7 @@ def season3_turn(positions, opponents=None, ball=None, rerolls=0):
     game, players = get_custom_game_turn(positions, opponents, ball)
     game.ruleset = load_rule_set('BB2025')
     game.config.ruleset = 'BB2025'
+    game.current_turn().secure_ball_available = True
     for team in game.state.teams:
         team.state.rerolls = rerolls
         team.state.reroll_used = False

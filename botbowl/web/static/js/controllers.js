@@ -1,4 +1,5 @@
 
+// Modified for the Season 3 Secure the Ball action, October 2026.
 appControllers.controller('GameListCtrl', ['$scope', '$window', 'GameService', 'ReplayService',
     function GameListCtrl($scope, $window, GameService, ReplayService) {
         $scope.games = [];
@@ -472,6 +473,9 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
         };
 
         $scope.actionButtonName = function actionButtonName(action_type){
+            if (action_type === "START_SECURE_BALL") {
+                return "Secure the Ball";
+            }
             if (action_type === "USE_REROLL"){
                 return 'Re-roll';
             } else if (action_type === "DONT_USE_REROLL"){
@@ -1369,7 +1373,7 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
                 }
                 return true;
             }
-            if (action.action_type !== "START_GAME" && action.action_type.indexOf("START_") > -1){
+            if (action.action_type !== "START_GAME" && action.action_type !== "START_SECURE_BALL" && action.action_type.indexOf("START_") > -1){
                 return false;
             }
             // If no args -> show

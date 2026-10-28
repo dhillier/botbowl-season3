@@ -1,4 +1,5 @@
 
+// Modified for the Season 3 Secure the Ball action log, October 2026.
 appServices.factory('GameService', function($http) {
     return {
         get: function(id) {
@@ -176,6 +177,7 @@ appServices.factory('GameLogService', function() {
             'HANDOFF': "<player> handed of the ball off to <opp_player>.",
             'END_PLAYER_TURN': "<players> turn is over.",
             'MOVE_ACTION_STARTED': "<player> starts a movement action.",
+            'SECURE_BALL_ACTION_STARTED': "<player> starts a Secure the Ball action.",
             'BLOCK_ACTION_STARTED': "<player> starts a block action.",
             'BLITZ_ACTION_STARTED': "<player> starts a blitz action.",
             'PASS_ACTION_STARTED': "<player> starts a pass action.",

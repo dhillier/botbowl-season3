@@ -220,6 +220,7 @@ class PlayerState(Reversible):
         self.stunned = False
         self.bone_headed = False
         self.hypnotized = False
+        self.distracted = False  # Season 3; legacy status aliases remain supported.
         self.really_stupid = False
         self.heated = False
         self.knocked_out = False
@@ -243,6 +244,7 @@ class PlayerState(Reversible):
             'knocked_out': self.knocked_out,
             'bone_headed': self.bone_headed,
             'hypnotized': self.hypnotized,
+            'distracted': self.distracted,
             'really_stupid': self.really_stupid,
             'heated': self.heated,
             'ejected': self.ejected,
@@ -266,6 +268,7 @@ class PlayerState(Reversible):
         self.wild_animal = False
         self.taken_root = False
         self.hypnotized = False
+        self.distracted = False
         self.really_stupid = False
         self.heated = False
         self.blood_lust = False
@@ -1033,7 +1036,7 @@ class Dugout(Reversible):
 class Role:
 
     def __init__(self, name, races, ma, st, ag, av, skills, cost, feeder, n_skill_sets=None, d_skill_sets=None,
-                 star_player=False, pa=None, target_characteristics=False):
+                 star_player=False, pa=None, target_characteristics=False, keywords=None):
         self.name = name
         self.races = races
         self.ma = ma
@@ -1048,6 +1051,7 @@ class Role:
         self.star_player = star_player
         self.pa = pa
         self.target_characteristics = target_characteristics
+        self.keywords = tuple(keywords or ())
 
 
 class Piece:
@@ -1255,16 +1259,19 @@ class Player(Piece, Reversible):
     def has_tackle_zone(self):
         if self.has_skill(Skill.TITCHY):
             return False
-        if self.state.up and not self.state.bone_headed and not self.state.hypnotized and not self.state.really_stupid:
+        if self.state.up and not self.is_distracted():
             return True
         return False
 
     def can_catch(self):
-        return self.state.up and not self.state.bone_headed and not self.state.hypnotized and \
-               not self.state.really_stupid and Skill.NO_HANDS not in self.get_skills()
+        return self.state.up and not self.is_distracted() and Skill.NO_HANDS not in self.get_skills()
 
     def can_assist(self):
-        return self.state.up and not self.state.bone_headed and not self.state.hypnotized and not self.state.really_stupid
+        return self.state.up and not self.is_distracted()
+
+    def is_distracted(self):
+        return (self.state.distracted or self.state.bone_headed or
+                self.state.hypnotized or self.state.really_stupid)
 
     def num_moves_left(self, include_gfi: bool = False):
         if self.state.taken_root or self.state.used or self.state.stunned:
