@@ -920,6 +920,8 @@ class Game:
         :param player:
         :return: True if player is in the opponent's endzone with the ball.
         """
+        if self.is_season3 and (player.position is None or not player.state.up):
+            return False
         return self.arena.is_in_opp_endzone(player.position, player.team == self.state.home_team) and \
                self.has_ball(player)
 
@@ -2414,10 +2416,16 @@ class Game:
                     continue
                 if neighbor.distance(position_to) > max_distance:
                     continue
-                if neighbor.x > max(position_from.x, position_to.x) or neighbor.x < min(position_from.x, position_to.x):
-                    continue
-                if neighbor.y > max(position_from.y, position_to.y) or neighbor.y < min(position_from.y, position_to.y):
-                    continue
+                # The Season 3 horizontal-pass illustration explicitly lets
+                # the adjacent row intercept. Clipping to the endpoint box
+                # collapses horizontal/vertical rulers to a one-square line.
+                # Retain the upstream grid corridor and endpoint-distance
+                # limits; its exact physical ruler width remains provisional.
+                if not self.is_season3:
+                    if neighbor.x > max(position_from.x, position_to.x) or neighbor.x < min(position_from.x, position_to.x):
+                        continue
+                    if neighbor.y > max(position_from.y, position_to.y) or neighbor.y < min(position_from.y, position_to.y):
+                        continue
 
                 # 5) Remove squares without standing opponents with hands
                 player_at = self.get_player_at(neighbor)
@@ -2440,6 +2448,9 @@ class Game:
         for square in n:
             players.append(self.get_player_at(square))
 
+        if self.is_season3:
+            # Stable coach-choice ordering for normal play and search.
+            players.sort(key=lambda player: team.players.index(player))
         return players
 
     def get_available_actions(self) -> List[ActionChoice]:

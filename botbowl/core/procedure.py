@@ -842,7 +842,7 @@ class Catch(Procedure):
             # Can player even catch ball?
             if not self.player.can_catch():
                 if type(self.piece) is Ball:
-                    Bounce(self.game, self.piece)
+                    Bounce(self.game, self.piece, kick=self.kick and self.game.is_season3)
                     self.game.report(Outcome(OutcomeType.FAILED_CATCH, player=self.player))
                 elif type(self.piece) is Bomb:
                     Explode(self.game, self.piece)
@@ -3664,6 +3664,7 @@ class Push(Procedure):
         self.squares = None
         self.selector = game.get_active_player()
         self.crowd = False
+        self.crowd_turnover = False
         self.strip_ball_condition = self.pusher.has_skill(Skill.STRIP_BALL) and not self.player.has_usable_skill(Skill.SURE_HANDS) and not self.knock_down and not self.chain and self.game.has_ball(self.player)
         
     def step(self, action):
@@ -3677,6 +3678,12 @@ class Push(Procedure):
             # Move pushed player
             self.game.move(self.player, self.push_to)
 
+            # A friendly player surfed by a chain push ends the active team's
+            # turn even without the ball. Finish the entire push, injury and
+            # ball resolution before ending the turn.
+            if self.game.is_season3 and self.crowd_turnover:
+                Turnover(self.game)
+
             # Ball
             if self.game.has_ball(self.player):
                 if self.player.position.out_of_bounds:
@@ -3686,7 +3693,7 @@ class Push(Procedure):
                     self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.pusher, skill=Skill.STRIP_BALL))
                     self.game.report(Outcome(OutcomeType.FUMBLE, player=self.player, opp_player=self.pusher))
                     Bounce(self.game, self.game.get_ball_at(self.player.position) )
-                elif self.game.is_touchdown(self.player):
+                elif self.game.is_touchdown(self.player) and not (self.game.is_season3 and self.knock_down):
                     Touchdown(self.game, self.player)
                     
             elif self.game.get_ball_at(self.push_to) is not None:
@@ -3762,6 +3769,9 @@ class Push(Procedure):
             # Report
             if self.crowd:
                 self.game.report(Outcome(OutcomeType.PUSHED_INTO_CROWD, player=self.player))
+                if self.game.is_season3 and self.player.team == self.game.state.current_team:
+                    root_push = next(p for p in self.game.state.stack.items if isinstance(p, Push))
+                    root_push.crowd_turnover = True
             else:
                 self.game.report(Outcome(OutcomeType.PUSHED, player=self.player, position=action.position))
 
@@ -4094,10 +4104,18 @@ class ThrowIn(Procedure):
 
         # Move ball to throw-in position
         self.ball.move_to(self.position)
-        self.ball.carried = False
+        if self.game.is_season3:
+            self.ball.is_carried = False
+        else:
+            self.ball.carried = False
 
         # Roll
-        roll_direction = DiceRoll([D3(self.game.rng)], roll_type=RollType.SCATTER_ROLL)
+        corner = (self.position.x in (1, self.game.arena.width - 2) and
+                  self.position.y in (1, self.game.arena.height - 2))
+        direction_die = D6 if self.game.is_season3 and not corner else D3
+        roll_direction = DiceRoll([direction_die(self.game.rng)], roll_type=RollType.SCATTER_ROLL)
+        direction = ((roll_direction.get_sum() + 1) // 2 if direction_die is D6
+                     else roll_direction.get_sum())
         roll_distance = DiceRoll.from_string(self.game.config.throw_in_dice, rng=self.game.rng)
         roll_distance.roll_type = RollType.DISTANCE_ROLL
 
@@ -4106,31 +4124,33 @@ class ThrowIn(Procedure):
         y = 0
 
         if self.ball.position.y == 1 and self.ball.position.x == 1:  # Top left corner
-            y = 0 if roll_direction.get_sum() == 1 else 1
-            x = 0 if roll_direction.get_sum() == 3 else 1
+            y = 0 if direction == 1 else 1
+            x = 0 if direction == 3 else 1
         elif self.ball.position.y == 1 and self.ball.position.x == len(self.game.arena.board[0])-2:  # Top right corner
-            y = 0 if roll_direction.get_sum() == 3 else 1
-            x = 0 if roll_direction.get_sum() == 1 else -1
+            y = 0 if direction == 3 else 1
+            x = 0 if direction == 1 else -1
         elif self.ball.position.y == len(self.game.arena.board)-2 and self.ball.position.x == len(self.game.arena.board[0])-2:  # Bottom right corner
-            y = 0 if roll_direction.get_sum() == 1 else -1
-            x = 0 if roll_direction.get_sum() == 3 else -1
+            y = 0 if direction == 1 else -1
+            x = 0 if direction == 3 else -1
         elif self.ball.position.y == len(self.game.arena.board)-2 and self.ball.position.x == 1:  # Bottom left corner
-            y = 0 if roll_direction.get_sum() == 3 else -1
-            x = 0 if roll_direction.get_sum() == 1 else 1
+            y = 0 if direction == 3 else -1
+            x = 0 if direction == 1 else 1
         elif self.ball.position.y == 1:  # Above
             y = 1
-            x = 2 - roll_direction.get_sum()
+            x = 2 - direction
         elif self.ball.position.y == len(self.game.arena.board)-2:  # Below
             y = -1
-            x = -2 + roll_direction.get_sum()
+            x = -2 + direction
         elif self.ball.position.x == 1:  # Right
             x = 1
-            y = -2 + roll_direction.get_sum()
+            y = -2 + direction
         elif self.ball.position.x == len(self.game.arena.board[0])-2:  # Left
             x = -1
-            y = 2 - roll_direction.get_sum()
+            y = 2 - direction
 
-        for i in range(roll_distance.get_sum()):
+        # Season 3 counts the last on-pitch square itself as square one.
+        distance = roll_distance.get_sum() - int(self.game.is_season3)
+        for i in range(distance):
             self.ball.move(x, y)
             if self.game.is_out_of_bounds(self.ball.position):
                 ThrowIn(self.game, self.ball, self.game.get_square(self.ball.position.x - x, self.ball.position.y - y))

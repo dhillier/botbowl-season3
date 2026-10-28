@@ -4,13 +4,13 @@ An independent development repository adapting [Bot Bowl](https://github.com/nju
 
 ## Status
 
-The Season 3 migration preview includes fixed Human profiles with PA, native target characteristics, revised ball resolution/re-rolls, Secure the Ball, declared Blitz targets, jumping over downed players, stalling/Forego Activation, end-of-turn stunned recovery, and the status restrictions on Human starting skills, and selected-roster kick-off/weather/injury/drive flow. These actions include engine resolution, legal choices, bot/pathfinding integration and controls for preview matches in the existing web interface. It is incomplete; ordinary defaults still use upstream BB2016. See the [coverage and validation notes](docs/season3-migration.md) and [build plan](BUILD_PLAN.md).
+The Season 3 migration preview includes fixed Human profiles with PA, native target characteristics, revised ball resolution/re-rolls, Secure the Ball, declared Blitz targets, jumping over downed players, stalling/Forego Activation, end-of-turn stunned recovery, Human starting-skill restrictions, selected-roster kick-off/weather/injury/drive flow, and audited scoring/throw-in boundaries. These actions include engine resolution, legal choices, bot/pathfinding integration and controls for preview matches in the existing web interface. It is incomplete; ordinary defaults still use upstream BB2016. See the [coverage and validation notes](docs/season3-migration.md) and [build plan](BUILD_PLAN.md).
 
 With the project environment installed, run a headless scripted-versus-scripted preview from the repository root:
 
 ```sh
 python -m examples.season3_preview --seed 0
-python -m pytest tests/game/test_season3.py tests/game/test_secure_ball.py tests/game/test_season3_actions.py tests/game/test_season3_status.py tests/game/test_season3_flow.py -q
+python -m pytest tests/game/test_season3.py tests/game/test_secure_ball.py tests/game/test_season3_actions.py tests/game/test_season3_status.py tests/game/test_season3_flow.py tests/game/test_season3_ball.py -q
 ```
 
 Remaining timing/geometry interactions, probability budget work, PA presentation and versioned observations still need completion and final review. Do not use this preview for Season 3 training or claim full rules fidelity yet.

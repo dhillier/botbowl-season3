@@ -1,6 +1,6 @@
 # Blood Bowl Season 3 — fixed-roster Bot Bowl migration
 
-Status: five implementation slices completed on 28 October 2026. The explicit Season 3 preview includes fixed Human characteristics/PA, ball resolution, the selected actions and starting skills, and kick-off/weather/injury/recovery/drive flow, with bot, pathfinding and web integration. The migration remains incomplete. Current coverage, interpretation decisions, validation and remaining work are tracked in [docs/season3-migration.md](docs/season3-migration.md).
+Status: six implementation slices completed on 28 October 2026. The explicit Season 3 preview includes fixed Human characteristics/PA, ball resolution, the selected actions and starting skills, kick-off/weather/injury/recovery/drive flow, and a scoring/ball-boundary audit, with bot, pathfinding and web integration. The supplied passing-range chart is verified; exact physical interception-ruler geometry remains provisional. The migration remains incomplete. Current coverage, interpretation decisions, validation and remaining work are tracked in [docs/season3-migration.md](docs/season3-migration.md).
 
 ## Confirmed direction
 

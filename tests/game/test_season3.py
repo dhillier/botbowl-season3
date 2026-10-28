@@ -262,7 +262,7 @@ def test_scatter_out_of_bounds_throws_in_without_interception():
     game, (passer, target, _) = season3_turn([(3, 5), (10, 1)], [(6, 3)], (3, 5))
     # Long pass 5-2=3: inaccurate, then first scatter exits north.
     # Throw-in direction straight south, distance 2; then one ground bounce.
-    with only_fixed_rolls(game, d6=[5, 1, 1], d8=[2, 2, 2, 7], d3=[2]):
+    with only_fixed_rolls(game, d6=[5, 3, 1, 1], d8=[2, 2, 2, 7]):
         pass_ball(game, passer, target.position)
     assert game.has_report_of_type(OutcomeType.BALL_OUT_OF_BOUNDS)
     assert game.has_report_of_type(OutcomeType.TURNOVER)
