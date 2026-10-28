@@ -104,6 +104,7 @@ class Season3Adapter:
             'spatial_features': list(SPATIAL_FEATURES), 'global_features': list(GLOBAL_FEATURES),
             'roll_features': list(ROLL_FEATURES), 'max_public_rolls': MAX_PUBLIC_ROLLS,
             'action_features': ['test_success_preview', 'signed_block_dice_div_3', 'has_test_preview'],
+            'ball_airborne': 'uncarried airborne kick or pending prepared pass/catch; carried takes precedence',
             'count_encoding': 'n/(1+abs(n)); profile divisors MA10 ST8 AG6 PA6 AV12',
             'pathfinding': game.config.pathfinding_enabled,
             'directly_to_adjacent': game.config.pathfinding_directly_to_adjacent,
@@ -182,7 +183,14 @@ class Season3Adapter:
             if ball.position is not None:
                 pos = ball.position
                 x = WIDTH - 1 - pos.x if codec.flip else pos.x
-                for name, value in [('ball', 1), ('ball_carried', ball.is_carried), ('ball_airborne', not ball.on_ground)]:
+                # on_ground is primarily a kick lifecycle flag in the engine;
+                # passing/catching context is also needed for an airborne ball.
+                in_flight = not ball.on_ground or any(
+                    not p.done and getattr(p, 'piece', None) is ball and
+                    (isinstance(p, proc.Catch) or isinstance(p, proc.Season3PassAttempt) and p.landing_prepared)
+                    for p in game.state.stack.items)
+                for name, value in [('ball', 1), ('ball_carried', ball.is_carried),
+                                    ('ball_airborne', not ball.is_carried and in_flight)]:
                     spatial[spatial_index[name], pos.y, x] = value
         target = TargetPlayerLayer().get(game)
         spatial[spatial_index['declared_target']] = np.flip(target, 1) if codec.flip else target

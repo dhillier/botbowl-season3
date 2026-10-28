@@ -100,6 +100,8 @@ The exported name tuples in `botbowl/ai/season3_env.py` define feature order.
 
 AG and PA are distinct native targets divided by 6; MA uses 10, ST 8, AV 12.
 A PA-present feature distinguishes a missing characteristic from an empty square.
+The airborne-ball feature accounts for pending passes/catches as well as the
+engine's kick ground flag; a carried ball is never labelled airborne.
 Counts use `n/(1+abs(n))`, preserving differences even when re-rolls, Bribes or
 scores accumulate beyond the legacy feature scales. `rerolls` is the total usable
 pool; `drive_rerolls` identifies its temporary subset and must not be added again.

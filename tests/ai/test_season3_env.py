@@ -204,10 +204,12 @@ def test_interception_changes_perspective_to_defending_coach_and_back():
     assert observation['global'][GLOBAL_FEATURES.index('current_team_is_actor')] == 0
     x = 27 - catcher.position.x if codec.flip else catcher.position.x
     assert observation['spatial'][SPATIAL_FEATURES.index('pass_landing'), catcher.position.y, x] == 1
+    assert observation['spatial'][SPATIAL_FEATURES.index('ball_airborne'), catcher.position.y, x] == 1
     with only_fixed_rolls(game, d6=[3]):
         observation, _, _, _, info = step_action(env, ActionType.SELECT_NONE)
     assert game.has_ball(catcher)
     assert env.adapter.codec().team == passer.team
+    assert not observation['spatial'][SPATIAL_FEATURES.index('ball_airborne')].any()
 
 
 def test_pending_reroll_observes_public_die_and_chosen_movement_destination():
@@ -228,6 +230,22 @@ def test_pending_reroll_observes_public_die_and_chosen_movement_destination():
     assert player.team.state.rerolls == 1
     assert observation['global'][GLOBAL_FEATURES.index('own_can_use_reroll')] == 1
     assert observation['global'][GLOBAL_FEATURES.index('own_reroll_used')] == 1
+
+
+def test_pending_bounce_catch_is_airborne_until_caught_even_with_ground_flag_set():
+    game, (player,) = season3_turn([(5, 5)], ball=(5, 5), rerolls=1)
+    game.get_ball().is_carried = False
+    with only_fixed_rolls(game, d6=[1]):
+        run_proc(game, botbowl.Catch(game, player, game.get_ball()))
+    assert isinstance(game.get_procedure(), Reroll)
+    env = wrap(game)
+    observation = env.adapter.observe()
+    assert observation['spatial'][SPATIAL_FEATURES.index('ball_airborne')].sum() == 1
+    assert not observation['spatial'][SPATIAL_FEATURES.index('ball_carried')].any()
+    with only_fixed_rolls(game, d6=[4]):
+        observation, *_ = step_action(env, ActionType.USE_REROLL)
+    assert observation['spatial'][SPATIAL_FEATURES.index('ball_carried')].sum() == 1
+    assert not observation['spatial'][SPATIAL_FEATURES.index('ball_airborne')].any()
 
 
 def test_per_action_previews_do_not_overwrite_jump_with_move_to_same_square():
@@ -308,6 +326,7 @@ def test_profiles_statuses_skills_reserves_and_resources_are_observed():
     player.role = game.ruleset.get_role('Thrower', 'Human')
     player.state.distracted = True
     player.state.dodgy_snack = True
+    game.get_ball().on_ground = False  # A carried ball must still not be labelled airborne.
     opponent.extra_skills = [Skill.DODGE, Skill.TACKLE]
     opponent.use_skill(Skill.DODGE)
     player.team.state.drive_rerolls = 2
@@ -330,6 +349,7 @@ def test_profiles_statuses_skills_reserves_and_resources_are_observed():
     assert observation['global'][GLOBAL_FEATURES.index('own_rerolls')] == pytest.approx(12 / 13)
     assert observation['global'][GLOBAL_FEATURES.index('own_drive_rerolls')] == pytest.approx(2 / 3)
     assert env.observation_space.contains(observation)
+    assert not observation['spatial'][SPATIAL_FEATURES.index('ball_airborne')].any()
 
 
 @pytest.mark.parametrize('event', ['solid', 'quick', 'charge'])
@@ -380,7 +400,7 @@ def test_contract_metadata_rejects_legacy_changed_rules_or_pathfinding_variant()
     env = Season3Env()
     _, info = env.reset(seed=1)
     saved = info['interface']
-    assert saved['fingerprint'] == 'dd239eb2692afeee7833a92b0f83948f5317910589f72c453e7b06117fdde42a'
+    assert saved['fingerprint'] == 'f51ce8f7997f0435642dec9baa098820a773a175fc49a777b7b7cdf761b420a3'
     env.adapter.require_compatible(saved)
     for field in ('rules', 'observations'):
         incompatible = deepcopy(saved)
@@ -389,7 +409,7 @@ def test_contract_metadata_rejects_legacy_changed_rules_or_pathfinding_variant()
             env.adapter.require_compatible(incompatible)
     other = Season3Env(pathfinding=True)
     other.reset(seed=1)
-    assert other.adapter.metadata()['fingerprint'] == '8e3757198777f4ed62f8e28375e89df5424a179cd92940493d1fe6ad58125654'
+    assert other.adapter.metadata()['fingerprint'] == 'ae3de855d00bb13912b890ee82c46211e8a4ecc18e4e1036419223f8ed4ac066'
     with pytest.raises(ValueError):
         other.adapter.require_compatible(saved)
     with pytest.raises(ValueError):
