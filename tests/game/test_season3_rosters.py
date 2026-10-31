@@ -90,6 +90,14 @@ def test_existing_human_team_preserves_role_names_and_composition():
     assert all(p.role.name == 'Lineman' for p in team.players[5:])
 
 
+def test_insignificant_players_cannot_outnumber_other_roster_players():
+    assert validate_roster_selection('snotling', {
+        'snotling-lineman': 5, 'fun-hoppa': 2, 'stilty-runna': 2, 'fungus-flinga': 2}) == 215000
+    with pytest.raises(ValueError, match='Insignificant'):
+        validate_roster_selection('snotling', {
+            'snotling-lineman': 6, 'fun-hoppa': 2, 'stilty-runna': 2, 'fungus-flinga': 1})
+
+
 def test_skill_audit_accounts_for_every_skill_without_claiming_completion():
     import json
     from pathlib import Path

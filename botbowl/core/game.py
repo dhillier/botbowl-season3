@@ -1238,6 +1238,13 @@ class Game:
         player.state.up = True
         player.state.stunned = False
         self.get_casualties(player.team).append(player)
+        self._expire_leader_reroll(player.team)
+
+    def _expire_leader_reroll(self, team):
+        if self.is_season3 and team.state.leader_reroll:
+            removed = self.get_casualties(team) + self.get_dungeon(team)
+            if not any(p.has_skill(Skill.LEADER) and p not in removed for p in team.players):
+                team.state.leader_reroll = False
 
     def pitch_to_dungeon(self, player: Player) -> None:
         """
@@ -1251,6 +1258,7 @@ class Game:
                 if player in box:
                     box.remove(player)
         self.get_dungeon(player.team).append(player)
+        self._expire_leader_reroll(player.team)
         player.state.ejected = True
         player.state.up = True
 
@@ -1259,16 +1267,20 @@ class Game:
         Lifts player from the board. Call put_down(player) to set player down again.
         """
         assert not player.state.in_air
+        position = player.position
+        self.remove(player)
         player.state.in_air = True
-        self.state.pitch.board[player.position.y][player.position.x] = None
+        self.put(player, position)
 
     def put_down(self, player: Player) -> None:
         """
         Puts a player down on the board on the square it was hovering.
         """
         assert player.state.in_air
+        position = player.position
+        self.remove(player)
         player.state.in_air = False
-        self.put(player, player.position)
+        self.put(player, position)
 
     def put(self, piece: Union[Catchable, Player], position: Square) -> None:
         """
@@ -1313,7 +1325,7 @@ class Game:
         elif type(piece) is Bomb:
             self.state.pitch.bomb = None
 
-    def move(self, piece: Union[Catchable, Player], position: Square) -> None:
+    def move(self, piece: Union[Catchable, Player], position: Square, drop_ball=False) -> None:
         """
         Move a piece already on the board. If the piece is a ball carrier, the ball is moved as well.
         :param piece:
@@ -1324,7 +1336,12 @@ class Game:
             assert self.get_player_at(position) is None or (type(piece) == Player and piece.state.in_air)
             for ball in self.state.pitch.balls:
                 if ball.position == piece.position and ball.is_carried:
-                    ball.move_to(position)
+                    if drop_ball and position != piece.position:
+                        ball.is_carried = False
+                        self.report(Outcome(OutcomeType.SKILL_USED, player=piece,
+                                            skill=Skill.FUMBLEROOSKI, position=piece.position))
+                    else:
+                        ball.move_to(position)
             self.remove(piece)
             self.put(piece, position)
         elif isinstance(piece, Catchable):
@@ -1382,7 +1399,8 @@ class Game:
                 list.__setitem__, (destination.x, previous_occupant)))
 
     def get_catch_modifiers(self, catcher: Player, accurate: bool = False, interception: bool = False,
-                            handoff: bool = False, inaccurate: bool = False) -> int:
+                            handoff: bool = False, inaccurate: bool = False, punt: bool = False,
+                            kick: bool = False, target_square=None) -> int:
         """
         :param catcher:
         :param accurate: whether it is an accurate pass.
@@ -1395,10 +1413,11 @@ class Game:
             modifiers += 1
         modifiers = -2 if interception else modifiers
         if self.is_season3:
-            modifiers = 0 if accurate or handoff or inaccurate else -1
+            modifiers = 0 if accurate or handoff or inaccurate or punt or kick else -1
             if interception:
                 modifiers = -2 if inaccurate else -3
-            elif accurate and catcher.has_usable_skill(Skill.DIVING_CATCH):
+            elif not kick and catcher.has_usable_skill(Skill.DIVING_CATCH) and (
+                    catcher.position == target_square if target_square is not None else accurate):
                 modifiers += 1
         if interception and catcher.has_usable_skill(Skill.VERY_LONG_LEGS):
             modifiers += 2 if self.is_season3 else 1
@@ -1429,7 +1448,7 @@ class Game:
             modifiers = -3 if pass_distance == PassDistance.HAIL_MARY else modifiers - 1
         # Opposing tackle zones
         tackle_zones = self.num_tackle_zones_in(passer)
-        if not passer.has_usable_skill(Skill.NERVES_OF_STEEL):
+        if (self.is_season3 and ttm) or not passer.has_usable_skill(Skill.NERVES_OF_STEEL):
             modifiers -= tackle_zones
 
         # Weather
@@ -1444,7 +1463,7 @@ class Game:
                 PassDistance.LONG_PASS, PassDistance.LONG_BOMB, PassDistance.HAIL_MARY):
             modifiers += 1
 
-        if ttm:
+        if ttm and not self.is_season3:
             modifiers -= 1
 
         if passer.has_usable_skill(Skill.STRONG_ARM):
@@ -1570,6 +1589,8 @@ class Game:
         if catcher is not None:
             return catcher
         diving_catchers = self.get_adjacent_players(position, team=None, down=False, skill=Skill.DIVING_CATCH)
+        if self.is_season3:
+            diving_catchers = [p for p in diving_catchers if p.has_usable_skill(Skill.DIVING_CATCH) and p.can_catch()]
         if len(diving_catchers) == 1:
             return diving_catchers[0]
         else:
@@ -1874,7 +1895,7 @@ class Game:
         return position.x < 1 or position.x >= self.state.pitch.width - 1 or \
                position.y < 1 or position.y >= self.state.pitch.height - 1
 
-    def get_push_squares(self, from_position: Square, to_position: Square) -> List[Square]:
+    def get_push_squares(self, from_position: Square, to_position: Square, ignore_skills=False) -> List[Square]:
         """
         :param from_position: The position of the attacker.
         :param to_position: The position of the defender.
@@ -1882,9 +1903,8 @@ class Game:
         """
         attacker = self.get_player_at(from_position)
         defender = self.get_player_at(to_position)
-        assert attacker is not None 
         assert defender is not None
-        if defender.has_skill(Skill.SIDE_STEP) and not attacker.has_skill(Skill.GRAB):
+        if not ignore_skills and defender.has_usable_skill(Skill.SIDE_STEP) and attacker is not None and not attacker.has_usable_skill(Skill.GRAB):
             return self.get_adjacent_squares(to_position, out=True, occupied=False)
         squares_to = self.get_adjacent_squares(to_position, out=True)
         squares_empty = []
@@ -2086,7 +2106,7 @@ class Game:
         assert attacker.position.distance(defender.position) == 1
         attacker_strength = attacker.get_st()
         defender_strength = defender.get_st()
-        if blitz and attacker.has_skill(Skill.HORNS):
+        if blitz and attacker.has_usable_skill(Skill.HORNS):
             attacker_strength += 1
         attacker_strength += len(self.get_assisting_players(attacker, defender))
         if self.cheering_assist_available(attacker.team):
@@ -2094,7 +2114,7 @@ class Game:
         defender_strength += len(self.get_assisting_players(defender, attacker))
         return attacker_strength, defender_strength
 
-    def num_block_dice(self, attacker: Player, defender: Player, blitz: bool = False, dauntless_success: bool = False, extra_assists: int = 0) -> Optional[int]:
+    def num_block_dice(self, attacker: Player, defender: Player, blitz: bool = False, dauntless_success: bool = False, extra_assists: int = 0, strength_modifier: int = 0) -> Optional[int]:
         """
         :param attacker: 
         :param defender: 
@@ -2102,7 +2122,7 @@ class Game:
         :param dauntless_success: If a dauntless rolls was successful.
         :return: The number of block dice used in a block between the attacker and defender.
         """
-        return self.num_block_dice_at(attacker, defender, attacker.position, blitz, dauntless_success, extra_assists)
+        return self.num_block_dice_at(attacker, defender, attacker.position, blitz, dauntless_success, extra_assists, strength_modifier)
 
     def get_block_probs(self, attacker: Player, defender: Player) -> Tuple[float, float, float, float]:
         """
@@ -2276,7 +2296,7 @@ class Game:
         return bool(self.is_season3 and team.state.cheering_fans and turn is not None and
                     turn.team == team and not turn.blitz and not turn.quick_snap)
 
-    def num_block_dice_at(self, attacker, defender, position: Square, blitz: bool=False, dauntless_success: bool=False, extra_assists: int = 0):
+    def num_block_dice_at(self, attacker, defender, position: Square, blitz: bool=False, dauntless_success: bool=False, extra_assists: int = 0, strength_modifier: int = 0):
         """
         :param attacker:
         :param defender:
@@ -2291,12 +2311,16 @@ class Game:
         st_for = attacker.get_st()
         st_against = defender.get_st()
 
-        # Horns
-        if blitz and attacker.has_skill(Skill.HORNS):
+        # Season 3 compares unmodified characteristics before Horns, Multiple
+        # Block and assists are applied.
+        if self.is_season3 and dauntless_success:
+            st_for = max(st_for, st_against)
+        st_for += strength_modifier
+        if blitz and attacker.has_usable_skill(Skill.HORNS):
             st_for += 1
 
         # Dauntless
-        if dauntless_success:
+        if dauntless_success and not self.is_season3:
             st_for = max(st_for, st_against)
 
         # Find assists
@@ -2662,7 +2686,7 @@ class Game:
         """
         :param player: Player attempting to land.
         """
-        return self.num_tackle_zones_in(player)
+        return (-1 if self.is_season3 else 1) * self.num_tackle_zones_in(player)
 
     def get_handoff_actions(self, player: Player) -> List[ActionChoice]:
         """
@@ -2849,7 +2873,9 @@ class Game:
 
     def get_pickup_teammate_actions(self, player: Player) -> List[ActionChoice]:
         actions = []
-        teammates = self.get_adjacent_teammates(player, down=False, skill=Skill.RIGHT_STUFF)
+        teammates = self.get_adjacent_teammates(player, down=self.is_season3, skill=Skill.RIGHT_STUFF)
+        if self.is_season3:
+            teammates = [p for p in teammates if not p.state.taken_root and not self.is_chomped(p)]
         if teammates:
             positions = [teammate.position for teammate in teammates]
             rolls = [2] if player.has_skill(Skill.ALWAYS_HUNGRY) else []
@@ -2992,7 +3018,8 @@ class Game:
         :return:  modifier for player to stand up. 
         """
         if player.has_skill(Skill.TIMMMBER):
-            return len([p for p in self.get_adjacent_teammates(player, down=False) if self.num_tackle_zones_in(p) == 0])
+            return len([p for p in self.get_adjacent_teammates(player, down=False)
+                        if self.num_tackle_zones_in(p) == 0 and (not self.is_season3 or not p.is_distracted())])
         return 0
 
 

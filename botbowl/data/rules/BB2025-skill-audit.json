@@ -2,808 +2,953 @@
   "ruleset": "BB2025",
   "all_skills_validated": false,
   "ready_for_additional_team_validation": false,
-  "scope": "Local work in progress. Scenario-tested means specific regression cases pass, not complete skill certification. The 432 availability tests are not counted as effect coverage.",
+  "scope": "Validated means source-reviewed standalone engine behavior with deterministic skill scenarios. It does not certify every possible skill combination, team playtesting, scripted tactics, league progression or non-Human path probability estimates. Availability-only parameterized tests are not counted as effect coverage.",
   "skills": [
     {
       "id": "CATCH",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3.py"
+        "tests/game/test_season3.py",
+        "tests/game/test_season3_handoff_preview.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "DIVING_CATCH",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_skill_interactions.py",
+        "tests/game/test_season3_skill_modifiers.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "DIVING_TACKLE",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_escape_skills.py"
+        "tests/game/test_season3_escape_skills.py",
+        "tests/game/test_season3_skill_interactions.py"
       ],
-      "remaining": "Post-reroll resolution tested; Pogo modifier and movement risk-preview integration remain."
+      "remaining": ""
     },
     {
       "id": "DODGE",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3.py"
+        "tests/game/test_season3.py",
+        "tests/game/test_season3_actions.py",
+        "tests/game/test_season3_escape_skills.py",
+        "tests/game/test_season3_faq_skills.py",
+        "tests/game/test_season3_pathfinding.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "DEFENSIVE",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_block_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "HIT_AND_RUN",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_special_actions.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "JUMP_UP",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "LEAP",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_actions.py",
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "SAFE_PAIR_OF_HANDS",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_damage_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "SIDE_STEP",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_block_skills.py",
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "SPRINT",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "SURE_FEET",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "DIRTY_PLAYER",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_faq_skills.py",
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "EYE_GOUGE",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_block_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "FUMBLEROOSKI",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Dropping the ball while leaving a square has no action/procedure yet."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_remaining_traits.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "LETHAL_FLIGHT",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Thrown-player collision modifiers and casualty credit need implementation."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_throw_team_mate.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "LONE_FOULER",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_damage_skills.py"
+        "tests/game/test_season3_damage_skills.py",
+        "tests/game/test_season3_faq_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "PILE_DRIVER",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Procedure exists; actual block-to-foul, ejection and mandatory prone timing require resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_remaining_traits.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "PUT_THE_BOOT_IN",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_block_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "QUICK_FOUL",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_activation_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "SABOTEUR",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_drive_skills.py"
       ],
-      "remaining": "Basic retaliation tested; simultaneous blocks, ball drops and treatment ordering remain."
+      "remaining": ""
     },
     {
       "id": "SHADOWING",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_escape_skills.py"
+        "tests/game/test_season3_ball_and_chain.py",
+        "tests/game/test_season3_escape_skills.py",
+        "tests/game/test_season3_faq_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "SNEAKY_GIT",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_faq_skills.py",
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "VIOLENT_INNOVATOR",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Special-action casualty SPP attribution is not implemented."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_special_actions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "BLOCK",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3.py"
+        "tests/game/test_season3.py",
+        "tests/game/test_season3_actions.py",
+        "tests/game/test_season3_faq_skills.py",
+        "tests/game/test_season3_skill_interactions.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "DAUNTLESS",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "FEND",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_ball_and_chain.py",
         "tests/game/test_season3_block_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "FRENZY",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "KICK",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Select the kicker and optional D3 kick deviation; current kickoff auto-selects a player."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_kicking_and_reactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "PRO",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_reroll_skills.py"
+        "tests/game/test_season3_reroll_skills.py",
+        "tests/game/test_season3_skill_interactions.py"
       ],
-      "remaining": "3+ and one block die tested; clarify rerolling the Pro test itself against the supplied rule/FAQ."
+      "remaining": ""
     },
     {
       "id": "STEADY_FOOTING",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_damage_skills.py"
+        "tests/game/test_season3_damage_skills.py",
+        "tests/game/test_season3_faq_skills.py",
+        "tests/game/test_season3_skill_interactions.py"
       ],
-      "remaining": "Single knockdown prevention tested; simultaneous Both Down and scoring interactions remain."
+      "remaining": ""
     },
     {
       "id": "STRIP_BALL",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_block_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "SURE_HANDS",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3.py"
+        "tests/game/test_season3.py",
+        "tests/game/test_season3_acceptance.py",
+        "tests/game/test_season3_pathfinding.py",
+        "tests/game/test_season3_remaining_traits.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "TACKLE",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3.py"
+        "tests/game/test_season3.py",
+        "tests/game/test_season3_faq_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "TAUNT",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_block_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "WRESTLE",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "BIG_HAND",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "CLAWS",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_damage_skills.py"
+        "tests/game/test_season3_damage_skills.py",
+        "tests/game/test_season3_special_actions.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "DISTURBING_PRESENCE",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "EXTRA_ARMS",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "FOUL_APPEARANCE",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_block_skills.py"
+        "tests/game/test_season3_ball_and_chain.py",
+        "tests/game/test_season3_block_skills.py",
+        "tests/game/test_season3_faq_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "HORNS",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "IRON_HARD_SKIN",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_damage_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "MONSTROUS_MOUTH",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_ball_and_chain.py",
+        "tests/game/test_season3_faq_skills.py",
         "tests/game/test_season3_special_actions.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "PREHENSILE_TAIL",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "TENTACLES",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_escape_skills.py"
+        "tests/game/test_season3_ball_and_chain.py",
+        "tests/game/test_season3_escape_skills.py",
+        "tests/game/test_season3_faq_skills.py",
+        "tests/game/test_season3_remaining_traits.py"
       ],
-      "remaining": "Dodge/jump resolution tested; rush ordering and path probability integration remain."
+      "remaining": ""
     },
     {
       "id": "TWO_HEADS",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "VERY_LONG_LEGS",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "ACCURATE",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_skill_modifiers.py"
+        "tests/game/test_season3_skill_modifiers.py",
+        "tests/game/test_season3_throw_team_mate.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "CANNONEER",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_skill_modifiers.py"
+        "tests/game/test_season3_skill_modifiers.py",
+        "tests/game/test_season3_throw_team_mate.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "CLOUD_BURSTER",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_bombs.py",
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "DUMP_OFF",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_faq_skills.py",
         "tests/game/test_season3_special_actions.py"
       ],
-      "remaining": "Block reaction tested; ownership of pre-pass tests and all targeted-special-action interactions need review."
+      "remaining": ""
     },
     {
       "id": "GIVE_AND_GO",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_activation_skills.py"
+        "tests/game/test_season3_activation_skills.py",
+        "tests/game/test_season3_bombs.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "HAIL_MARY_PASS",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "LEADER",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_drive_skills.py"
+        "tests/game/test_season3_drive_skills.py",
+        "tests/game/test_season3_remaining_traits.py"
       ],
-      "remaining": "Pool availability/consumption tested; all-leaders-removed expiry and half-start lifecycle need further tests."
+      "remaining": ""
     },
     {
       "id": "NERVES_OF_STEEL",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_skill_interactions.py",
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "ON_THE_BALL",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Pass-reaction and pre-kickoff movement sequences need implementation."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_kicking_and_reactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "PASS",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3.py"
+        "tests/game/test_season3.py",
+        "tests/game/test_season3_acceptance.py",
+        "tests/game/test_season3_bombs.py",
+        "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "PUNT",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Punt declaration, direction, distance, Kick rerolls and turnover resolution are absent."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_kicking_and_reactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "SAFE_PASS",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_bombs.py",
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "ARM_BAR",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_damage_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "BRAWLER",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_faq_skills.py",
+        "tests/game/test_season3_multiple_block.py",
         "tests/game/test_season3_reroll_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "BREAK_TACKLE",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_escape_skills.py"
       ],
-      "remaining": "Resolution tested; once-per-turn probability budgeting in both pathfinders remains."
+      "remaining": ""
     },
     {
       "id": "BULLSEYE",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Superb Throw landing without scatter requires the Season 3 throw-team-mate migration."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_throw_team_mate.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "GRAB",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_block_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "GUARD",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_block_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "JUGGERNAUT",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_block_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "MIGHTY_BLOW",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_damage_skills.py"
+        "tests/game/test_season3_activation_skills.py",
+        "tests/game/test_season3_damage_skills.py",
+        "tests/game/test_season3_multiple_block.py",
+        "tests/game/test_season3_special_actions.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "MULTIPLE_BLOCK",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Simultaneous targets, strength reduction and deferred turnover need implementation."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_multiple_block.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "STAND_FIRM",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_block_skills.py",
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "STRONG_ARM",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Passing modifier tested; full throw-team-mate resolution remains."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_skill_modifiers.py",
+        "tests/game/test_season3_throw_team_mate.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "THICK_SKULL",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_trait_injuries.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "ALWAYS_HUNGRY",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_throw_team_mate.py",
         "tests/game/test_season3_trait_injuries.py"
       ],
-      "remaining": "Death treatment is tested; escape, fumble, mandatory turnover and the full throwing sequence remain."
+      "remaining": ""
     },
     {
       "id": "ANIMAL_SAVAGERY",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_activation_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "ANIMOSITY",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_activation_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "BALL_AND_CHAIN",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Directional movement, friendly blocks, rush timing and automatic injury need migration."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_ball_and_chain.py",
+        "tests/game/test_season3_faq_skills.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "BLOOD_LUST",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_activation_skills.py"
       ],
-      "remaining": "Parameter, feeding and absence tested; blitz-to-move and pre-score/pass feeding interactions need broader tests."
+      "remaining": ""
     },
     {
       "id": "BOMBARDIER",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Bomb passing, explosion ordering, throwing back and once-per-turn declaration need migration."
+      "status": "scenario-tested",
+      "tests": [
+        "tests/game/test_season3_bombs.py"
+      ],
+      "remaining": "Coach ruling pending for a compulsory rethrow by a player with PA \"-\"; implementation drops and explodes in place rather than deadlocking."
     },
     {
       "id": "BONE_HEAD",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_actions.py",
+        "tests/game/test_season3_flow.py",
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "BREATHE_FIRE",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_special_actions.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "CHAINSAW",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_remaining_traits.py",
         "tests/game/test_season3_special_actions.py"
       ],
-      "remaining": "Attack and kickback tested; using the saw during a foul remains."
+      "remaining": ""
     },
     {
       "id": "DECAY",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_trait_injuries.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "DRUNKARD",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "HATRED",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_reroll_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "HYPNOTIC_GAZE",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
-        "tests/game/test_season3_activation_skills.py"
+        "tests/game/test_season3_activation_skills.py",
+        "tests/game/test_season3_special_actions.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "INSIGNIFICANT",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_rosters.py"
       ],
-      "remaining": "Composition constraint exists; add explicit roster-construction acceptance/rejection cases."
+      "remaining": ""
     },
     {
       "id": "KICK_TEAM_MATE",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Separate declaration and fumbled-kick injury sequence are absent."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_throw_team_mate.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "LONER",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "MY_BALL",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_remaining_traits.py",
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "NO_BALL",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_ball_and_chain.py",
+        "tests/game/test_season3_faq_skills.py",
+        "tests/game/test_season3_remaining_traits.py",
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Pickup and catch restrictions tested; touchbacks, path probabilities and all special possessions need review."
+      "remaining": ""
     },
     {
       "id": "PICK_ME_UP",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_drive_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "PLAGUE_RIDDEN",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Once-per-game resurrection after treatment and a new reserve lineman are absent."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_remaining_traits.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "POGO",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_skill_interactions.py",
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "PROJECTILE_VOMIT",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_special_actions.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "REALLY_STUPID",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_trait_injuries.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "REGENERATION",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_special_actions.py",
+        "tests/game/test_season3_throw_team_mate.py",
         "tests/game/test_season3_trait_injuries.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "RIGHT_STUFF",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Prone throw eligibility and throw/landing timing need migration."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_throw_team_mate.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "SECRET_WEAPON",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_drive_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "STAB",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_special_actions.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "STUNTY",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_skill_modifiers.py",
         "tests/game/test_season3_trait_injuries.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "SWOOP",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Directional scatter replacement and landing reroll need migration."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_throw_team_mate.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "TAKE_ROOT",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_block_skills.py",
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "THROW_TEAM_MATE",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Separate action allowance, superb/fumbled throws, collision and landing rules need migration."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_skill_interactions.py",
+        "tests/game/test_season3_throw_team_mate.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "TIMMMBER",
-      "status": "pending",
-      "tests": [],
-      "remaining": "Audit inherited mechanics against Season 3 and add resolution tests."
+      "status": "validated",
+      "tests": [
+        "tests/game/test_season3_skill_interactions.py"
+      ],
+      "remaining": ""
     },
     {
       "id": "TITCHY",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "TRICKSTER",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
+        "tests/game/test_season3_faq_skills.py",
+        "tests/game/test_season3_skill_interactions.py",
         "tests/game/test_season3_special_actions.py"
       ],
-      "remaining": "Repositioning tested; pickup failure, scoring and defensive reaction ordering need additional coverage."
+      "remaining": ""
     },
     {
       "id": "UNCHANNELLED_FURY",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_activation_skills.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     },
     {
       "id": "UNSTEADY",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_skill_modifiers.py"
       ],
-      "remaining": "Complete cross-skill timing, optional-use and preview audit."
+      "remaining": ""
     }
+  ],
+  "reviewed_on": "2026-10-31",
+  "additional_source": {
+    "title": "Official Third Season FAQ and Errata, May 2026",
+    "url": "https://assets.warhammer-community.com/eng_20-05_blood_bowl_faq_errata-gytvlserev-ngihd3chox.pdf",
+    "sha256": "c87f73ee0a17c2fbd94283c8ede75ad5220de366f131388d94b1ee69e5849ca4"
+  },
+  "limitations": [
+    "Prepared squads and the versioned RL contract remain fixed-Human; all 30 roster profiles can be loaded independently.",
+    "Movement probabilities retain the existing planning model; Tentacles, Diving Tackle, Shadowing, Break Tackle, Pro, Loner and Steady Footing decisions are resolved by the engine but are not fully modeled in route probabilities.",
+    "Inherited automatic use of beneficial modifiers and automatic skill rerolls remains. Strategic choices with explicit costs or adverse consequences have action prompts, including Sneaky Git foul assists and Dirty Player/Lone Fouler decisions.",
+    "The scripted bot has legal defaults for new skill prompts; team-specific skill planning and complete team matches are subsequent validation work.",
+    "A compulsory bomb rethrow by a player with PA \"-\" currently drops and explodes in place; this interpretation is pending coach confirmation."
   ]
 }

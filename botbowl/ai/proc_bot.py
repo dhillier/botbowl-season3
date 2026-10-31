@@ -23,6 +23,16 @@ class ProcBot(Agent):
         # print(type(proc))
         
         action: Optional[Action] = None
+
+        # New Season 3 decisions have a legal default for existing ProcBot
+        # subclasses. Bots can override this hook to plan the skills tactically.
+        if game.is_season3 and (
+                isinstance(proc, (SpecialAction, ThrowTeamMateAction, PuntAction, BallAndChainAction)) or
+                isinstance(proc, ThrowBombAction) and proc.rethrow or
+                isinstance(proc, Reroll) and (proc.block_skills or proc.pro is not None) or
+                isinstance(proc, Block) and proc.waiting_dump_off or
+                isinstance(proc, FollowUp) and any(a.skill is not None for a in game.get_available_actions())):
+            return self.season3_skill_decision(game)
         
         # Call private function
         if isinstance(proc, CoinTossFlip):
@@ -106,6 +116,8 @@ class ProcBot(Agent):
         elif isinstance(proc, EatThrall):
             action = self.eat_thrall(game)
         else:
+            if game.is_season3:
+                return self.season3_skill_decision(game)
             raise Exception("Unknown procedure")
 
         if action is None:
@@ -119,6 +131,16 @@ class ProcBot(Agent):
             return new_action
 
         return action
+
+    def season3_skill_decision(self, game):
+        """Conservative legal decisions; this is not a team-specific strategy."""
+        choices = [a for a in game.get_available_actions() if not a.disabled]
+        priority = {ActionType.USE_SKILL: 0, ActionType.DONT_USE_SKILL: 1,
+                    ActionType.END_PLAYER_TURN: 2, ActionType.SELECT_NONE: 3}
+        choice = min(choices, key=lambda a: priority.get(a.action_type, 4))
+        return Action(choice.action_type,
+                      player=choice.players[0] if choice.players else None,
+                      position=choice.positions[0] if choice.positions else None)
 
     def blitz_target(self, game):
         """Default for Season 3 clients that have not added target planning yet."""

@@ -303,6 +303,8 @@ class Pathfinder:
         return self._collect_paths(target)
 
     def _get_pickup_target(self, to_pos):
+        if self.game.is_season3 and self.player.has_skill(Skill.NO_BALL):
+            return 7  # impossible even with a team or Sure Hands re-roll
         if self.secure_ball:
             return 2 - self.game.get_secure_ball_modifiers()
         if self.game.is_season3:

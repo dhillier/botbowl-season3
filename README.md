@@ -4,7 +4,7 @@ A community adaptation of [BotBowl](https://github.com/njustesen/botbowl) for Bl
 
 **Current scope: a preview for fixed Human-versus-Human standalone matches.** This is not an all-team or league implementation. Automated rule scenarios are covered; representative coach playtesting and review of the digital interception ruler remain release gates. Ordinary game defaults and legacy v4 environments still use BB2016. Select Season 3 explicitly.
 
-The local team expansion now includes data for all 30 supplied Season 3 rosters (159 positionals), plus an inventory of all 108 skills and traits. Data availability is separate from rules certification. Skill mechanics are being implemented and checked before validating additional teams; see `python scripts/skill_audit.py` for the remaining work. The existing prepared Human squads and Human-only RL interface retain their scope.
+The local team expansion includes all 30 supplied Season 3 rosters (159 positionals) and engine scenarios for all 108 skills and traits. The skill audit records source review, regression evidence and outstanding rulings; run `python scripts/skill_audit.py`. Individual teams still need incremental match validation. The existing prepared Human squads and Human-only RL interface retain their scope.
 
 ## Get started
 
@@ -38,7 +38,7 @@ python scripts/check_local.py
 python scripts/check_local.py --suite skills
 ```
 
-This uses the current Python environment and installed dependencies. Add `--rebuild-native` after changing Cython sources. Reports are written under the ignored `artifacts/local-checks/` directory. A green test run does not certify skills still listed in the skill audit.
+This uses the current Python environment and installed dependencies. Add `--rebuild-native` after changing Cython sources. Reports are written under the ignored `artifacts/local-checks/` directory. No push, workflow dispatch or GitHub Actions minutes are needed. A green test run does not close rulings still listed in the skill audit.
 
 Access the complete team data independently of prepared squads:
 
@@ -68,7 +68,7 @@ python -m examples.season3_rl --seed 0
 python -m examples.season3_rl --seed 4 --opponent scripted --pathfinding
 ```
 
-See [rule coverage](docs/season3-migration.md), [acceptance and interpretation decisions](docs/season3-acceptance.md), and the [agent interface contract](docs/season3-rl.md). League progression remains outside the standalone engine's scope. Additional team data is available; complete squad loading, skill certification and team playtesting are separate remaining steps.
+See [rule coverage](docs/season3-migration.md), [acceptance and interpretation decisions](docs/season3-acceptance.md), and the [agent interface contract](docs/season3-rl.md). League progression remains outside the standalone engine's scope. The scripted bot can answer the new skill prompts, but its tactical planning and route probability estimates do not fully model those skills. Complete squad loading and team playtesting remain separate steps.
 
 ## Community boundary
 

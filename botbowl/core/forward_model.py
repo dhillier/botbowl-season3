@@ -137,11 +137,13 @@ class MovementStep(Step):
         self.put = put
 
     def _put(self):
-        self.board[self.square.y][self.square.x] = self.piece
+        if self.board is not None:
+            self.board[self.square.y][self.square.x] = self.piece
         self.piece.position = self.square
 
     def _remove(self):
-        self.board[self.square.y][self.square.x] = None
+        if self.board is not None:
+            self.board[self.square.y][self.square.x] = None
         self.piece.position = None
 
     def undo(self):

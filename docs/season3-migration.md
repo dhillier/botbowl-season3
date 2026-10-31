@@ -81,6 +81,20 @@ The web page serves `static/dist/js/botbowl.js`, not the individual source files
 
 Development environment verified on this Mac: Apple Python 3.9.6 in `.venv`, the upstream `requirements.txt`, and a local override `urllib3==1.26.20`. The upstream urllib3 2.0.2 pin cannot import with this Apple Python's LibreSSL. To reproduce this specific environment after installing requirements, run `python -m pip install urllib3==1.26.20`. This is a recorded local compatibility workaround; dependency modernization and Windows/5090 validation remain separate work. The full upstream suite retains existing Gym observation/deprecation warnings. New Season 3 IDs declare matching dictionary spaces and pass masked rollouts, with additional advisory warnings about structured tensors. Old v4 interfaces remain unsuitable for Season 3 training; benchmark the new contract and complete coach review before expensive training.
 
+## Local team and skill expansion, 31 October 2026
+
+The roster catalog now holds all 30 supplied teams and 159 positional profiles, with prices, quantity limits, shared Big Guy limits, skill categories, keywords, trait parameters and source hashes. `load_rule_set('BB2025')` loads them all; `get_team_profile()` and `validate_roster_selection()` expose the data and draft constraints independently of prepared squads. This includes the Insignificant draft limit. No additional team is being declared match-validated by importing its data.
+
+All 108 skills and traits have deterministic engine scenarios. The machine-readable record is `botbowl/data/rules/BB2025-skill-audit.json`; `python scripts/skill_audit.py --require-complete` checks its remaining ruling gates. Coverage includes separate Throw/Kick Team-mate actions, collisions and landings, bombs and rethrows, Ball & Chain, simultaneous Multiple Block resolution, reactions, casualty credit, resurrection, optional foul choices and relevant forward-model reversal. The web controls expose the new actions, and ProcBot subclasses have an overridable legal-decision fallback. Existing Human observation/action fingerprints stay fixed.
+
+The [official May 2026 FAQ](https://assets.warhammer-community.com/eng_20-05_blood_bowl_faq_errata-gytvlserev-ngihd3chox.pdf) supplements the supplied PDFs. Its regressions cover Brawler's activation limit, Always Hungry turnovers, Ball & Chain crowd injuries, Trickster escaping Chomp, Steady Footing rerolls and dodge reaction order. The downloaded PDF remains in ignored local artifacts; its hash is recorded in the audit.
+
+One interpretation needs coach confirmation: a compulsory bomb rethrow by a player with no PA currently drops and explodes in that player's square. This prevents an actionless deadlock without inventing a passing characteristic. The normal rethrow, catch, interception and explosion sequences have separate regression cases.
+
+Validation here concerns standalone engine resolution. It does not establish tactical strength or exhaustive cross-skill correctness. Route probabilities retain the existing planning model and do not fully model Tentacles, Diving Tackle, Shadowing, Break Tackle, Pro, Loner or Steady Footing. The scripted bot can answer their prompts, but planning how to use each team's skills is further work. Existing automatic beneficial modifiers/rerolls remain; costly choices and adverse combinations have explicit prompts. League progression, purchased inducement selection, prepared squads for every roster, art coverage and incremental team matches remain outside this change.
+
+All checks can run with `python scripts/check_local.py`; reports and JUnit output are saved under ignored `artifacts/local-checks/`. The full local run passed 2,189 tests plus dependency, native import, fatal lint and web bundle checks. Existing Gym warnings remain. `--suite skills` includes Season 3 engine and bot integration tests. These changes were developed locally without pushing or dispatching workflows.
+
 ## Local rules references
 
 PDF page numbers below count from the first page of each supplied file:

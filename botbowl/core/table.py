@@ -292,6 +292,8 @@ class PlayerActionType(Enum):
     THROW_BOMB = 7
     SECURE_BALL = 8
     SPECIAL = 9
+    THROW_TEAM_MATE = 10
+    KICK_TEAM_MATE = 11
 
 
 class PhysicalState(Enum):
@@ -441,6 +443,14 @@ class ActionType(Enum):
     BREATHE_FIRE = 79
     CHOMP = 80
     CHAINSAW = 81
+    START_THROW_TEAM_MATE = 82
+    START_KICK_TEAM_MATE = 83
+    SELECT_DIRECTION = 84
+    FUMBLEROOSKI = 85
+    START_PUNT = 86
+    PUNT = 87
+    START_BALL_AND_CHAIN = 88
+    BALL_AND_CHAIN = 89
 
 
 class WeatherType(Enum):

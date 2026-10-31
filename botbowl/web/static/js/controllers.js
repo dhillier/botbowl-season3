@@ -566,6 +566,15 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
                             $scope.special_rolls["THROW_TEAM_MATE"] = action.rolls;
                             $scope.special_positions["THROW_TEAM_MATE"] = action.positions;
                             $scope.special_action_selected = action;
+                        } else if (["PROJECTILE_VOMIT", "BREATHE_FIRE", "CHOMP", "CHAINSAW", "THROW_BOMB",
+                                    "PUNT", "FUMBLEROOSKI", "SELECT_DIRECTION", "BALL_AND_CHAIN"].indexOf(action.action_type) >= 0) {
+                            if ($scope.special_actions.indexOf(action.action_type) < 0) {
+                                $scope.special_actions.push(action.action_type);
+                                $scope.special_rolls[action.action_type] = [];
+                                $scope.special_positions[action.action_type] = [];
+                            }
+                            $scope.special_rolls[action.action_type] = $scope.special_rolls[action.action_type].concat(action.rolls);
+                            $scope.special_positions[action.action_type] = $scope.special_positions[action.action_type].concat(action.positions);
                         } else {
                             $scope.available_select_positions = action.positions;
                         }
@@ -1374,18 +1383,21 @@ appControllers.controller('GamePlayCtrl', ['$scope', '$routeParams', '$location'
                 return false;
             }
             if (action.action_type === "USE_SKILL"){
-                return false;
+                return action.player_ids.length === 0;
             }
             if (action.action_type === "DONT_USE_SKILL"){
                 for (let idx in $scope.game.state.available_actions) {
                     let a = $scope.game.state.available_actions[idx];
                     if (a.action_type === "USE_SKILL"){
-                        return false;  // Dump off exception
+                        return a.player_ids.length === 0;
                     }
                 }
                 return true;
             }
-            if (action.action_type !== "START_GAME" && action.action_type !== "START_SECURE_BALL" && action.action_type.indexOf("START_") > -1){
+            // The original six declarations have player-dot shortcuts. New
+            // skill declarations remain selectable in the main action bar.
+            if (["START_MOVE", "START_BLOCK", "START_PASS", "START_HANDOFF", "START_BLITZ",
+                 "START_FOUL", "START_THROW_BOMB"].indexOf(action.action_type) >= 0){
                 return false;
             }
             // If no args -> show

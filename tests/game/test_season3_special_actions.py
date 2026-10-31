@@ -7,6 +7,17 @@ from tests.game.test_season3 import season3_turn
 from tests.game.test_season3_flow import run_proc
 
 
+@pytest.mark.parametrize('innovator', [False, True])
+def test_special_action_casualty_credit_requires_violent_innovator(innovator):
+    game, (player, victim) = season3_turn([(13, 5)], [(14, 5)], ball=(20, 12))
+    player.extra_skills = [Skill.STAB] + ([Skill.VIOLENT_INNOVATOR] if innovator else [])
+    victim.extra_skills = [Skill.REGENERATION]
+    with only_fixed_rolls(game, d6=[5, 4, 6, 4, 4]):
+        run_proc(game, SpecialAttack(game, player, victim, Skill.STAB))
+    assert victim in game.get_reserves(victim.team)
+    assert player.state.spp_earned == (2 if innovator else 0)
+
+
 @pytest.mark.parametrize('skill,start,perform,dice,prone', [
     (Skill.STAB, ActionType.START_STAB, ActionType.STAB, [5, 4, 1, 2], True),
     (Skill.PROJECTILE_VOMIT, ActionType.START_PROJECTILE_VOMIT, ActionType.PROJECTILE_VOMIT, [2, 5, 4, 1, 2], True),

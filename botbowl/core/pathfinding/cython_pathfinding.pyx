@@ -253,6 +253,8 @@ cdef class Pathfinder:
 
     cdef int _get_pickup_target(self, Square to_pos):
         cdef int target = self.dodge_target + self.tzones[to_pos.y][to_pos.x]
+        if self.game.is_season3 and self.player.has_skill(table.Skill.NO_BALL):
+            return 7
         if self.secure_ball:
             return 2 - self.game.get_secure_ball_modifiers()
         if self.game.is_season3:

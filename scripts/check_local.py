@@ -32,7 +32,7 @@ def main():
                        '--show-source', '--statistics']),
         ('web-bundle', [sys.executable, 'scripts/build_web_js.py', '--check'])]
     tests = [] if args.suite == 'full' else [str(p.relative_to(ROOT)) for p in
-                                          sorted((ROOT / 'tests/game').glob('test_season3*.py'))]
+                                          sorted((ROOT / 'tests').rglob('test_season3*.py'))]
     checks.append(('pytest', [sys.executable, '-m', 'pytest', '-q',
                               '--junitxml=' + str(output / 'pytest.xml')] + tests))
     report = {'python': sys.version, 'executable': sys.executable, 'suite': args.suite,

@@ -413,6 +413,7 @@ class TeamState(Reversible):
         self.time_violation = 0
         self.leader_reroll = False
         self.leader_half_checked = 0
+        self.plague_ridden_used = False
 
     def to_json(self):
         return {
@@ -433,6 +434,7 @@ class TeamState(Reversible):
             'can_argue': self.can_argue,
             'leader_reroll': self.leader_reroll,
             'leader_half_checked': self.leader_half_checked,
+            'plague_ridden_used': self.plague_ridden_used,
             'reroll_used': self.reroll_used,
             'time_violation': self.time_violation
         }
@@ -1187,7 +1189,10 @@ class Ball(Catchable, Reversible):
 class Bomb(Catchable, Reversible):
 
     def __init__(self, position, on_ground=True, is_carried=False):
+        Reversible.__init__(self)
         super().__init__(position, on_ground, is_carried)
+        self.thrower = None
+        self.casualty_credit = False
 
 
 class Player(Piece, Reversible):
