@@ -4,6 +4,8 @@ A community adaptation of [BotBowl](https://github.com/njustesen/botbowl) for Bl
 
 **Current scope: a preview for fixed Human-versus-Human standalone matches.** This is not an all-team or league implementation. Automated rule scenarios are covered; representative coach playtesting and review of the digital interception ruler remain release gates. Ordinary game defaults and legacy v4 environments still use BB2016. Select Season 3 explicitly.
 
+The local team expansion now includes data for all 30 supplied Season 3 rosters (159 positionals), plus an inventory of all 108 skills and traits. Data availability is separate from rules certification. Skill mechanics are being implemented and checked before validating additional teams; see `python scripts/skill_audit.py` for the remaining work. The existing prepared Human squads and Human-only RL interface retain their scope.
+
 ## Get started
 
 Use Python 3.8–3.11 and a C++ compiler (Visual Studio C++ Build Tools on Windows). The dependency set is inherited from BotBowl; use a dedicated environment.
@@ -28,6 +30,26 @@ python scripts/build_web_js.py --check
 python -m pytest -q
 ```
 
+To run the CI checks locally with saved logs and no GitHub Actions usage:
+
+```sh
+python scripts/check_local.py
+# Faster checks while developing skill mechanics:
+python scripts/check_local.py --suite skills
+```
+
+This uses the current Python environment and installed dependencies. Add `--rebuild-native` after changing Cython sources. Reports are written under the ignored `artifacts/local-checks/` directory. A green test run does not certify skills still listed in the skill audit.
+
+Access the complete team data independently of prepared squads:
+
+```python
+from botbowl import load_team_catalog, get_team_profile, load_rule_set
+catalog = load_team_catalog()            # 30 rosters, including source hashes
+vampires = get_team_profile('Vampire')   # positions, limits, skills, costs and staff
+rules = load_rule_set('BB2025')          # all 159 Season 3 positional profiles
+runner = rules.get_role('Vampire Runner', 'Vampire')
+```
+
 Start the existing local web interface with `python examples/server_example.py`, open `http://127.0.0.1:1234`, and select the Season 3 preview mode. This entry point also registers the scripted opponent. See [installation notes](docs/installation.md) for inherited platform details.
 
 ## Included
@@ -46,7 +68,7 @@ python -m examples.season3_rl --seed 0
 python -m examples.season3_rl --seed 4 --opponent scripted --pathfinding
 ```
 
-See [rule coverage](docs/season3-migration.md), [acceptance and interpretation decisions](docs/season3-acceptance.md), and the [agent interface contract](docs/season3-rl.md). League progression, team building, other rosters and optional player types are outside the current scope.
+See [rule coverage](docs/season3-migration.md), [acceptance and interpretation decisions](docs/season3-acceptance.md), and the [agent interface contract](docs/season3-rl.md). League progression remains outside the standalone engine's scope. Additional team data is available; complete squad loading, skill certification and team playtesting are separate remaining steps.
 
 ## Community boundary
 

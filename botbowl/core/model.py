@@ -237,6 +237,10 @@ class PlayerState(Reversible):
         self.squares_moved = []
         self.has_blocked = False
         self.failed_nega_trait_this_turn = False
+        self.eye_gouged = False
+        self.shadowing_uses = 0
+        self.chomped_by = None
+        self.played_drive = False
 
     def to_json(self):
         return {
@@ -262,6 +266,10 @@ class PlayerState(Reversible):
             'taken_root': self.taken_root,
             'blood_lust': self.blood_lust,
             'has_blocked': self.has_blocked,
+            'eye_gouged': self.eye_gouged,
+            'shadowing_uses': self.shadowing_uses,
+            'chomped_by': self.chomped_by,
+            'played_drive': self.played_drive,
             'failed_nega_trait_this_turn': self.failed_nega_trait_this_turn
         }
 
@@ -286,6 +294,11 @@ class PlayerState(Reversible):
         self.squares_moved.clear()
         self.failed_nega_trait_this_turn = False
         self.has_blocked = False
+
+        self.eye_gouged = False
+        self.shadowing_uses = 0
+        self.chomped_by = None
+        self.played_drive = False
 
     def reset_turn(self):
         self.could_score_at_activation = False
@@ -398,6 +411,8 @@ class TeamState(Reversible):
         self.can_argue = True
         self.reroll_used = False
         self.time_violation = 0
+        self.leader_reroll = False
+        self.leader_half_checked = 0
 
     def to_json(self):
         return {
@@ -416,6 +431,8 @@ class TeamState(Reversible):
             'drive_rerolls': self.drive_rerolls,
             'cheering_fans': self.cheering_fans,
             'can_argue': self.can_argue,
+            'leader_reroll': self.leader_reroll,
+            'leader_half_checked': self.leader_half_checked,
             'reroll_used': self.reroll_used,
             'time_violation': self.time_violation
         }
@@ -572,6 +589,7 @@ class GameState(Reversible):
         self.available_actions = []
         self.clocks = []
         self.rerolled_procs = set()
+        self.chomped_players = []
         self.player_action_type = None
 
     def compare(self, other):
@@ -1080,7 +1098,8 @@ class Dugout(Reversible):
 class Role:
 
     def __init__(self, name, races, ma, st, ag, av, skills, cost, feeder, n_skill_sets=None, d_skill_sets=None,
-                 star_player=False, pa=None, target_characteristics=False, keywords=None):
+                 star_player=False, pa=None, target_characteristics=False, keywords=None,
+                 skill_parameters=None, max_count=None, aliases=None):
         self.name = name
         self.races = races
         self.ma = ma
@@ -1096,6 +1115,9 @@ class Role:
         self.pa = pa
         self.target_characteristics = target_characteristics
         self.keywords = tuple(keywords or ())
+        self.skill_parameters = dict(skill_parameters or {})
+        self.max_count = max_count
+        self.aliases = tuple(aliases or ())
 
 
 class Piece:
@@ -1285,22 +1307,29 @@ class Player(Piece, Reversible):
     def has_skill(self, skill):
         return skill in self.get_skills()
 
+    def skill_parameter(self, skill, default=None):
+        """Edition-specific parameters, e.g. Loner (3+) or Animosity (Goblin)."""
+        return self.role.skill_parameters.get(skill, default)
+
     def has_used_skill(self, skill):
         return skill in self.state.used_skills
 
     def can_use_skill(self, skill):
         return self.has_usable_skill(skill) and not self.has_used_skill(skill)
 
-    def has_usable_skill(self, skill):
+    def has_usable_skill(self, skill, assume_standing=False):
         """Availability without imposing a once-per-turn limit.
 
-        These are the six Active skills on the selected Season 3 Human roster.
-        Keep other skills/legacy profiles on their existing behavior pending audit.
+        Season 3 distinguishes Active and Passive skills/traits. Event effects
+        that survive a knockdown (e.g. Mighty Blow) must snapshot eligibility at
+        the triggering event, rather than treating possession as availability.
         """
-        if self.role.target_characteristics and skill in (
-                Skill.BLOCK, Skill.DODGE, Skill.TACKLE, Skill.CATCH, Skill.PASS, Skill.SURE_HANDS):
-            if not self.state.up or self.state.stunned or self.is_distracted():
-                return False
+        if self.role.target_characteristics:
+            from botbowl.core.skill_rules import ACTIVE_SKILLS, PRONE_SKILLS
+            if skill in ACTIVE_SKILLS:
+                if self.state.stunned or self.is_distracted() or (
+                        not self.state.up and not assume_standing and skill not in PRONE_SKILLS):
+                    return False
         return self.has_skill(skill)
 
     def use_skill(self, skill):
@@ -1313,17 +1342,19 @@ class Player(Piece, Reversible):
         return self.num_moves_left(include_gfi=True) - self.num_moves_left(include_gfi=False)
 
     def has_tackle_zone(self):
-        if self.has_skill(Skill.TITCHY):
+        if self.has_skill(Skill.TITCHY) and not self.role.target_characteristics:
             return False
         if self.state.up and not self.is_distracted():
             return True
         return False
 
     def can_catch(self):
-        return self.state.up and not self.is_distracted() and Skill.NO_HANDS not in self.get_skills()
+        return self.state.up and not self.is_distracted() and not self.has_skill(Skill.NO_HANDS) and not (
+            self.role.target_characteristics and self.has_skill(Skill.NO_BALL))
 
     def can_assist(self):
-        return self.state.up and not self.is_distracted()
+        return self.state.up and not self.is_distracted() and not (
+            self.role.target_characteristics and self.state.eye_gouged)
 
     def is_distracted(self):
         return (self.state.distracted or self.state.bone_headed or
@@ -1528,7 +1559,7 @@ class RuleSet:
         for r in self.races:
             if r.name == race:
                 for p in r.roles:
-                    if p.name == role:
+                    if p.name == role or role in p.aliases:
                         return p
                 raise Exception("Role not found in race: " + race + " -> " + role)
         raise Exception("Race not found: " + race)

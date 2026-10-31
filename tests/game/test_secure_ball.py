@@ -104,10 +104,11 @@ def test_prone_or_distracted_opponent_does_not_prevent_declaration(status):
     assert player in secure_players(game)
 
 
-def test_standing_opponent_without_tackle_zone_still_prevents_declaration():
+def test_standing_titchy_opponent_still_prevents_declaration():
     game, (player, opponent) = season3_turn([(5, 5)], [(8, 5)], (6, 5))
     opponent.extra_skills = [Skill.TITCHY]
-    assert not opponent.has_tackle_zone()
+    # Season 3 Titchy affects incoming Dodge modifiers, not the Tackle Zone.
+    assert opponent.has_tackle_zone()
     assert not game.can_secure_ball(player)
 
 

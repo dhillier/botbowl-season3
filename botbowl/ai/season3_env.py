@@ -23,6 +23,10 @@ from botbowl.ai.season3_actions import (
 
 OBSERVATION_VERSION = 's3-observations-v2'
 RULES_VERSION = 'BB2025-fixed-human-2026-10-28-r1'
+# Freeze this published Human-only interface as the community engine adds skills.
+# New team/skill observations require a separate versioned adapter.
+FIXED_HUMAN_ACTION_TYPES = tuple(a for a in PlayerActionType if a.value <= 8)
+FIXED_HUMAN_ROLL_TYPES = tuple(r for r in RollType if r.value <= 40)
 SKILLS = (Skill.BLOCK, Skill.DODGE, Skill.TACKLE, Skill.CATCH, Skill.PASS, Skill.SURE_HANDS)
 ROLES = ('Lineman', 'Thrower', 'Catcher', 'Blitzer')
 PLAYER_FEATURES = (
@@ -61,16 +65,22 @@ BASE_GLOBAL_FEATURES = (
     'block_favour_is_actor', 'reroll_context_already_rerolled', 'interception_inaccurate')
 GLOBAL_FEATURES = BASE_GLOBAL_FEATURES + tuple('weather_' + w.name.lower() for w in WeatherType) + tuple(
     side + n for side in ('own_', 'opp_') for n in TEAM_FEATURES) + tuple(
-    'action_' + a.name.lower() for a in PlayerActionType) + tuple(
+    'action_' + a.name.lower() for a in FIXED_HUMAN_ACTION_TYPES) + tuple(
     prefix + name for prefix in ('stack_', 'top_', 'reroll_') for name in PROCEDURES)
 ROLL_FEATURES = ('present', 'dice_count', 'die_1', 'die_2', 'die_3', 'target', 'modifier') + tuple(
-    'type_' + r.name for r in RollType)
+    'type_' + r.name for r in FIXED_HUMAN_ROLL_TYPES)
 MAX_PUBLIC_ROLLS = 8
 
 
 def bounded(value):
     """Invertible signed count encoding; no clipping of accumulated resources."""
     return value / (1 + abs(value))
+
+
+def _procedure_name(procedure):
+    if isinstance(procedure, proc.Season3Escape):
+        return 'Jump' if procedure.jump else 'Dodge'
+    return type(procedure).__name__
 
 
 def observation_space():
@@ -256,9 +266,9 @@ class Season3Adapter:
                 value = game.can_use_reroll(current) if name == 'can_use_reroll' else getattr(current.state, name)
                 values[prefix + name] = float(value) if isinstance(value, bool) else bounded(value)
         values.update({'action_' + a.name.lower(): game.state.player_action_type == a for a in PlayerActionType})
-        top = type(stack[-1]).__name__ if stack else None
-        context = type(reroll.context).__name__ if reroll else None
-        types = {type(p).__name__ for p in stack}
+        top = _procedure_name(stack[-1]) if stack else None
+        context = _procedure_name(reroll.context) if reroll else None
+        types = {_procedure_name(p) for p in stack}
         for name in PROCEDURES:
             values.update({'stack_' + name: name in types, 'top_' + name: top == name,
                            'reroll_' + name: context == name})
@@ -281,7 +291,7 @@ class Season3Adapter:
                 (v.value if isinstance(v, BBDieResult) else v) / 16 for v in dice[:3]]
             values += [0] * (5 - len(values))
             values += [(roll.target or 0) / 16, bounded(roll.modifiers)]
-            values += [float(roll.roll_type == kind) for kind in RollType]
+            values += [float(roll.roll_type == kind) for kind in FIXED_HUMAN_ROLL_TYPES]
             row[:] = values
         return out
 

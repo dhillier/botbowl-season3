@@ -25,7 +25,8 @@ def _team_reroll_budget(game, player, allowed):
     """
     if not game.is_season3:
         return int(bool(allowed))
-    return player.team.state.rerolls if allowed and game.can_use_reroll(player.team) else 0
+    return (player.team.state.rerolls + int(game.leader_available(player.team))
+            if allowed and game.can_use_reroll(player.team) else 0)
 
 
 @treat_as_immutable
@@ -271,7 +272,7 @@ class Pathfinder:
         self.carries_ball = self.player is self.game.get_ball_carrier()
         self.ball_position = self.game.get_ball_position() if self.game.get_ball().on_ground else None
         self.endzone_x = 1 if self.player.team is self.game.state.home_team else self.game.arena.width - 2
-        self.gfi_target = 3 if self.game.state.weather is WeatherType.BLIZZARD else 2
+        self.gfi_target = self.game.get_rush_target(self.player)
 
         can_dodge = self.player.has_skill(Skill.DODGE) and Skill.DODGE not in self.player.state.used_skills
         can_sure_feet = self.player.has_skill(Skill.SURE_FEET) and Skill.SURE_FEET not in self.player.state.used_skills
@@ -304,6 +305,9 @@ class Pathfinder:
     def _get_pickup_target(self, to_pos):
         if self.secure_ball:
             return 2 - self.game.get_secure_ball_modifiers()
+        if self.game.is_season3:
+            modifiers = self.game.get_pickup_modifiers(self.player, to_pos, assume_standing=True)
+            return min(6, max(2, self.player.get_ag_target() - modifiers))
         zones_to = self.tzones[to_pos.y][to_pos.x]
         modifiers = 0 if self.game.is_season3 else 1
         if not self.player.has_skill(Skill.BIG_HAND):
@@ -325,6 +329,10 @@ class Pathfinder:
         zones_from = self.tzones[from_pos.y][from_pos.x]
         if zones_from == 0:
             return None
+        if self.game.is_season3:
+            modifiers = self.game.get_dodge_modifiers(self.player, to_pos,
+                                                     from_position=from_pos, assume_standing=True)
+            return min(6, max(2, self.player.get_ag_target() - modifiers))
         zones_to = int(self.tzones[to_pos.y][to_pos.x])
         modifiers = 0 if self.game.is_season3 else 1
 
@@ -449,8 +457,8 @@ class Pathfinder:
                          node.gfis_left - rushes, node.euclidean_distance + 2)
         for _ in range(rushes):
             next_node.apply_gfi(self.gfi_target)
-        marking = max(int(self.tzones[node.position.y][node.position.x]), int(self.tzones[to_pos.y][to_pos.x]))
-        next_node.apply_jump(min(6, max(2, self.player.get_ag_target() + marking)))
+        modifiers = self.game.get_jump_modifiers(self.player, node.position, to_pos)
+        next_node.apply_jump(min(6, max(2, self.player.get_ag_target() - modifiers)))
         if self.ball_position == to_pos:
             next_node.apply_pickup(self._get_pickup_target(to_pos))
         for best in (self.nodes[to_pos.y][to_pos.x], self.locked_nodes[to_pos.y][to_pos.x]):

@@ -223,7 +223,7 @@ cdef class Pathfinder:
 
         self.carries_ball = self.player is self.game.get_ball_carrier()
         self.endzone_x = 1 if self.player.team is self.game.state.home_team else self.game.arena.width - 2
-        self.gfi_target = 3 if self.game.state.weather is table.WeatherType.BLIZZARD else 2
+        self.gfi_target = self.game.get_rush_target(self.player)
         self.ma = self.player.num_moves_left()
         self.gfis = self.player.num_gfis_left()
 
@@ -255,6 +255,10 @@ cdef class Pathfinder:
         cdef int target = self.dodge_target + self.tzones[to_pos.y][to_pos.x]
         if self.secure_ball:
             return 2 - self.game.get_secure_ball_modifiers()
+        if self.game.is_season3:
+            target = self.player.get_ag_target() - self.game.get_pickup_modifiers(
+                self.player, to_botbowl_Square(to_pos), assume_standing=True)
+            return min(6, max(2, target))
         if self.game.state.weather == table.WeatherType.POURING_RAIN:
             target += 1
         return min(6, max(2, target))
@@ -266,6 +270,9 @@ cdef class Pathfinder:
 
     cdef int _get_dodge_target(self, Square from_pos, Square to_pos):
         cdef int target = self.dodge_target + (0 if self.is_stunty else self.tzones[to_pos.y][to_pos.x])
+        if self.game.is_season3:
+            target = self.player.get_ag_target() - self.game.get_dodge_modifiers(
+                self.player, to_botbowl_Square(to_pos), from_position=to_botbowl_Square(from_pos), assume_standing=True)
         return min(6, max(2, target))
 
     cdef void _expand(self, NodePtr node):
@@ -412,8 +419,8 @@ cdef class Pathfinder:
                                      node.get().gfis_left - rushes, node.get().euclidean_distance + 2)
         for _ in range(rushes):
             next_node.get().apply_gfi(self.gfi_target)
-        marking = max(self.tzones[node.get().position.y][node.get().position.x], self.tzones[to_pos.y][to_pos.x])
-        target = min(6, max(2, self.player.get_ag_target() + marking))
+        marking = self.game.get_jump_modifiers(self.player, to_botbowl_Square(node.get().position), to_botbowl_Square(to_pos))
+        target = min(6, max(2, self.player.get_ag_target() - marking))
         next_node.get().apply_jump(target)
         if to_pos == self.ball_pos:
             next_node.get().apply_pickup(self._get_pickup_target(to_pos))

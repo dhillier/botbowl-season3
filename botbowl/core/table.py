@@ -72,6 +72,7 @@ class RollType(Enum):
     STALLING_ROLL = 38
     DODGY_SNACK_ROLL = 39
     ARGUE_CALL_ROLL = 40
+    PRO = 41
 
 
 class OutcomeType(Enum):
@@ -290,6 +291,7 @@ class PlayerActionType(Enum):
     FOUL = 6
     THROW_BOMB = 7
     SECURE_BALL = 8
+    SPECIAL = 9
 
 
 class PhysicalState(Enum):
@@ -429,6 +431,16 @@ class ActionType(Enum):
     FOREGO_ACTIVATION = 69
     ARGUE_CALL = 70
     DONT_ARGUE_CALL = 71
+    START_STAB = 72
+    START_HYPNOTIC_GAZE = 73
+    START_PROJECTILE_VOMIT = 74
+    START_BREATHE_FIRE = 75
+    START_CHOMP = 76
+    START_CHAINSAW = 77
+    PROJECTILE_VOMIT = 78
+    BREATHE_FIRE = 79
+    CHOMP = 80
+    CHAINSAW = 81
 
 
 class WeatherType(Enum):
@@ -446,6 +458,7 @@ class SkillCategory(Enum):
     Passing = 3,
     Mutation = 4,
     Extraordinary = 5
+    Devious = 6
 
 
 class Skill(Enum):
@@ -528,6 +541,47 @@ class Skill(Enum):
     SWIFT_REACTION = 77
     PRO = 78
     TIMMMBER = 79
+    # Season 3 identities. Presence in the enum is not rule certification.
+    DEFENSIVE = 80
+    HIT_AND_RUN = 81
+    SAFE_PAIR_OF_HANDS = 82
+    EYE_GOUGE = 83
+    FUMBLEROOSKI = 84
+    LETHAL_FLIGHT = 85
+    LONE_FOULER = 86
+    PILE_DRIVER = 87
+    PUT_THE_BOOT_IN = 88
+    QUICK_FOUL = 89
+    SABOTEUR = 90
+    VIOLENT_INNOVATOR = 91
+    STEADY_FOOTING = 92
+    TAUNT = 93
+    IRON_HARD_SKIN = 94
+    CANNONEER = 95
+    CLOUD_BURSTER = 96
+    GIVE_AND_GO = 97
+    LEADER = 98
+    ON_THE_BALL = 99
+    PUNT = 100
+    SAFE_PASS = 101
+    ARM_BAR = 102
+    BRAWLER = 103
+    BULLSEYE = 104
+    ANIMAL_SAVAGERY = 105
+    BREATHE_FIRE = 106
+    DRUNKARD = 107
+    HATRED = 108
+    INSIGNIFICANT = 109
+    KICK_TEAM_MATE = 110
+    MY_BALL = 111
+    NO_BALL = 112
+    PICK_ME_UP = 113
+    PLAGUE_RIDDEN = 114
+    POGO = 115
+    PROJECTILE_VOMIT = 116
+    TRICKSTER = 117
+    UNCHANNELLED_FURY = 118
+    UNSTEADY = 119
 
 
 class PassDistance(Enum):

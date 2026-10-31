@@ -287,7 +287,10 @@ def test_tackle_prevents_use_without_consuming_later_dodge_reroll(implementation
     tackler.extra_skills = [Skill.TACKLE]
     blockers = [p for p in player.team.players if p != player and p.position is None]
     for x, blocker in zip(range(11, 16), blockers):
-        game.put(blocker, Square(x, 2))
+        # Keep the real opposing marker at (12, 2); overwriting its board cell
+        # leaves a phantom player.position and makes board/list queries disagree.
+        if game.get_player_at(Square(x, 2)) is None:
+            game.put(blocker, Square(x, 2))
     path = pf.Pathfinder(game, player, directly_to_adjacent=True).get_path(Square(14, 1))
     # Depart (10,1), (11,1) under Tackle: 5+ then 4+. Depart (12,1),
     # (13,1) without Tackle: 4+ then 3+, sharing the remaining Dodge re-roll.

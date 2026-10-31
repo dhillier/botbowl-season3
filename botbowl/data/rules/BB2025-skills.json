@@ -1,0 +1,982 @@
+{
+  "schema_version": 1,
+  "ruleset": "BB2025",
+  "source": {
+    "file": "8 - Skills & Traits.pdf",
+    "sha256": "cad7b67edb482a05f5e070c0cc6d2c3c6cf015c990c69b3efd71cdb181f5e4b8"
+  },
+  "skills": [
+    {
+      "id": "CATCH",
+      "name": "Catch",
+      "category": "agility",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 5
+    },
+    {
+      "id": "DIVING_CATCH",
+      "name": "Diving Catch",
+      "category": "agility",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 5
+    },
+    {
+      "id": "DIVING_TACKLE",
+      "name": "Diving Tackle",
+      "category": "agility",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 5
+    },
+    {
+      "id": "DODGE",
+      "name": "Dodge",
+      "category": "agility",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 6
+    },
+    {
+      "id": "DEFENSIVE",
+      "name": "Defensive",
+      "category": "agility",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 6
+    },
+    {
+      "id": "HIT_AND_RUN",
+      "name": "Hit And Run",
+      "category": "agility",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 6
+    },
+    {
+      "id": "JUMP_UP",
+      "name": "Jump Up",
+      "category": "agility",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 6
+    },
+    {
+      "id": "LEAP",
+      "name": "Leap",
+      "category": "agility",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 6
+    },
+    {
+      "id": "SAFE_PAIR_OF_HANDS",
+      "name": "Safe Pair Of Hands",
+      "category": "agility",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 6
+    },
+    {
+      "id": "SIDE_STEP",
+      "name": "Sidestep",
+      "category": "agility",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 7
+    },
+    {
+      "id": "SPRINT",
+      "name": "Sprint",
+      "category": "agility",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 7
+    },
+    {
+      "id": "SURE_FEET",
+      "name": "Sure Feet",
+      "category": "agility",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 7
+    },
+    {
+      "id": "DIRTY_PLAYER",
+      "name": "Dirty Player",
+      "category": "devious",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 7
+    },
+    {
+      "id": "EYE_GOUGE",
+      "name": "Eye Gouge",
+      "category": "devious",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 7
+    },
+    {
+      "id": "FUMBLEROOSKI",
+      "name": "Fumblerooski",
+      "category": "devious",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 7
+    },
+    {
+      "id": "LETHAL_FLIGHT",
+      "name": "Lethal Flight",
+      "category": "devious",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 7
+    },
+    {
+      "id": "LONE_FOULER",
+      "name": "Lone Fouler",
+      "category": "devious",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 8
+    },
+    {
+      "id": "PILE_DRIVER",
+      "name": "Pile Driver",
+      "category": "devious",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 8
+    },
+    {
+      "id": "PUT_THE_BOOT_IN",
+      "name": "Put The Boot In",
+      "category": "devious",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 8
+    },
+    {
+      "id": "QUICK_FOUL",
+      "name": "Quick Foul",
+      "category": "devious",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 8
+    },
+    {
+      "id": "SABOTEUR",
+      "name": "Saboteur",
+      "category": "devious",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 8
+    },
+    {
+      "id": "SHADOWING",
+      "name": "Shadowing",
+      "category": "devious",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 8
+    },
+    {
+      "id": "SNEAKY_GIT",
+      "name": "Sneaky Git",
+      "category": "devious",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 9
+    },
+    {
+      "id": "VIOLENT_INNOVATOR",
+      "name": "Violent Innovator",
+      "category": "devious",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 9
+    },
+    {
+      "id": "BLOCK",
+      "name": "Block",
+      "category": "general",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 9
+    },
+    {
+      "id": "DAUNTLESS",
+      "name": "Dauntless",
+      "category": "general",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 9
+    },
+    {
+      "id": "FEND",
+      "name": "Fend",
+      "category": "general",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 9
+    },
+    {
+      "id": "FRENZY",
+      "name": "Frenzy",
+      "category": "general",
+      "availability": "active",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 10
+    },
+    {
+      "id": "KICK",
+      "name": "Kick",
+      "category": "general",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 10
+    },
+    {
+      "id": "PRO",
+      "name": "Pro",
+      "category": "general",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 10
+    },
+    {
+      "id": "STEADY_FOOTING",
+      "name": "Steady Footing",
+      "category": "general",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 10
+    },
+    {
+      "id": "STRIP_BALL",
+      "name": "Strip Ball",
+      "category": "general",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 10
+    },
+    {
+      "id": "SURE_HANDS",
+      "name": "Sure Hands",
+      "category": "general",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 11
+    },
+    {
+      "id": "TACKLE",
+      "name": "Tackle",
+      "category": "general",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 11
+    },
+    {
+      "id": "TAUNT",
+      "name": "Taunt",
+      "category": "general",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 11
+    },
+    {
+      "id": "WRESTLE",
+      "name": "Wrestle",
+      "category": "general",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 11
+    },
+    {
+      "id": "BIG_HAND",
+      "name": "Big Hand",
+      "category": "mutation",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 11
+    },
+    {
+      "id": "CLAWS",
+      "name": "Claws",
+      "category": "mutation",
+      "availability": "passive",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 11
+    },
+    {
+      "id": "DISTURBING_PRESENCE",
+      "name": "Disturbing Presence",
+      "category": "mutation",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 11
+    },
+    {
+      "id": "EXTRA_ARMS",
+      "name": "Extra Arms",
+      "category": "mutation",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 12
+    },
+    {
+      "id": "FOUL_APPEARANCE",
+      "name": "Foul Appearance",
+      "category": "mutation",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 12
+    },
+    {
+      "id": "HORNS",
+      "name": "Horns",
+      "category": "mutation",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 12
+    },
+    {
+      "id": "IRON_HARD_SKIN",
+      "name": "Iron Hard Skin",
+      "category": "mutation",
+      "availability": "passive",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 12
+    },
+    {
+      "id": "MONSTROUS_MOUTH",
+      "name": "Monstrous Mouth",
+      "category": "mutation",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 12
+    },
+    {
+      "id": "PREHENSILE_TAIL",
+      "name": "Prehensile Tail",
+      "category": "mutation",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 12
+    },
+    {
+      "id": "TENTACLES",
+      "name": "Tentacles",
+      "category": "mutation",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 13
+    },
+    {
+      "id": "TWO_HEADS",
+      "name": "Two Heads",
+      "category": "mutation",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 13
+    },
+    {
+      "id": "VERY_LONG_LEGS",
+      "name": "Very Long Legs",
+      "category": "mutation",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 13
+    },
+    {
+      "id": "ACCURATE",
+      "name": "Accurate",
+      "category": "passing",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 13
+    },
+    {
+      "id": "CANNONEER",
+      "name": "Cannoneer",
+      "category": "passing",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 13
+    },
+    {
+      "id": "CLOUD_BURSTER",
+      "name": "Cloud Burster",
+      "category": "passing",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 13
+    },
+    {
+      "id": "DUMP_OFF",
+      "name": "Dump-Off",
+      "category": "passing",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 14
+    },
+    {
+      "id": "GIVE_AND_GO",
+      "name": "Give And Go",
+      "category": "passing",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 14
+    },
+    {
+      "id": "HAIL_MARY_PASS",
+      "name": "Hail Mary Pass",
+      "category": "passing",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 14
+    },
+    {
+      "id": "LEADER",
+      "name": "Leader",
+      "category": "passing",
+      "availability": "passive",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 14
+    },
+    {
+      "id": "NERVES_OF_STEEL",
+      "name": "Nerves Of Steel",
+      "category": "passing",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 14
+    },
+    {
+      "id": "ON_THE_BALL",
+      "name": "On The Ball",
+      "category": "passing",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 14
+    },
+    {
+      "id": "PASS",
+      "name": "Pass",
+      "category": "passing",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 15
+    },
+    {
+      "id": "PUNT",
+      "name": "Punt",
+      "category": "passing",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 15
+    },
+    {
+      "id": "SAFE_PASS",
+      "name": "Safe Pass",
+      "category": "passing",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 15
+    },
+    {
+      "id": "ARM_BAR",
+      "name": "Arm Bar",
+      "category": "strength",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 16
+    },
+    {
+      "id": "BRAWLER",
+      "name": "Brawler",
+      "category": "strength",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 16
+    },
+    {
+      "id": "BREAK_TACKLE",
+      "name": "Break Tackle",
+      "category": "strength",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 16
+    },
+    {
+      "id": "BULLSEYE",
+      "name": "Bullseye",
+      "category": "strength",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 16
+    },
+    {
+      "id": "GRAB",
+      "name": "Grab",
+      "category": "strength",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 16
+    },
+    {
+      "id": "GUARD",
+      "name": "Guard",
+      "category": "strength",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 17
+    },
+    {
+      "id": "JUGGERNAUT",
+      "name": "Juggernaut",
+      "category": "strength",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 17
+    },
+    {
+      "id": "MIGHTY_BLOW",
+      "name": "Mighty Blow",
+      "category": "strength",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 17
+    },
+    {
+      "id": "MULTIPLE_BLOCK",
+      "name": "Multiple Block",
+      "category": "strength",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 17
+    },
+    {
+      "id": "STAND_FIRM",
+      "name": "Stand Firm",
+      "category": "strength",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 17
+    },
+    {
+      "id": "STRONG_ARM",
+      "name": "Strong Arm",
+      "category": "strength",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 18
+    },
+    {
+      "id": "THICK_SKULL",
+      "name": "Thick Skull",
+      "category": "strength",
+      "availability": "passive",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 18
+    },
+    {
+      "id": "ALWAYS_HUNGRY",
+      "name": "Always Hungry",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 18
+    },
+    {
+      "id": "ANIMAL_SAVAGERY",
+      "name": "Animal Savagery",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 18
+    },
+    {
+      "id": "ANIMOSITY",
+      "name": "Animosity (X)",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": true,
+      "parameter": "X",
+      "source_page": 19
+    },
+    {
+      "id": "BALL_AND_CHAIN",
+      "name": "Ball & Chain",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 19
+    },
+    {
+      "id": "BLOOD_LUST",
+      "name": "Bloodlust (X+)",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": "X+",
+      "source_page": 20
+    },
+    {
+      "id": "BOMBARDIER",
+      "name": "Bombardier",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 21
+    },
+    {
+      "id": "BONE_HEAD",
+      "name": "Bone Head",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 22
+    },
+    {
+      "id": "BREATHE_FIRE",
+      "name": "Breathe Fire",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 22
+    },
+    {
+      "id": "CHAINSAW",
+      "name": "Chainsaw",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 23
+    },
+    {
+      "id": "DECAY",
+      "name": "Decay",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 23
+    },
+    {
+      "id": "DRUNKARD",
+      "name": "Drunkard",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 23
+    },
+    {
+      "id": "HATRED",
+      "name": "Hatred (X)",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": "X",
+      "source_page": 23
+    },
+    {
+      "id": "HYPNOTIC_GAZE",
+      "name": "Hypnotic Gaze",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 23
+    },
+    {
+      "id": "INSIGNIFICANT",
+      "name": "Insignificant",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 24
+    },
+    {
+      "id": "KICK_TEAM_MATE",
+      "name": "Kick Team-Mate",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 24
+    },
+    {
+      "id": "LONER",
+      "name": "Loner (X+)",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": "X+",
+      "source_page": 24
+    },
+    {
+      "id": "MY_BALL",
+      "name": "My Ball",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 24
+    },
+    {
+      "id": "NO_BALL",
+      "name": "No Ball",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 25
+    },
+    {
+      "id": "PICK_ME_UP",
+      "name": "Pick-Me-Up",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 25
+    },
+    {
+      "id": "PLAGUE_RIDDEN",
+      "name": "Plague Ridden",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 25
+    },
+    {
+      "id": "POGO",
+      "name": "Pogo",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 25
+    },
+    {
+      "id": "PROJECTILE_VOMIT",
+      "name": "Projectile Vomit",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 26
+    },
+    {
+      "id": "REALLY_STUPID",
+      "name": "Really Stupid",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 26
+    },
+    {
+      "id": "REGENERATION",
+      "name": "Regeneration",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 26
+    },
+    {
+      "id": "RIGHT_STUFF",
+      "name": "Right Stuff",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 26
+    },
+    {
+      "id": "SECRET_WEAPON",
+      "name": "Secret Weapon",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 26
+    },
+    {
+      "id": "STAB",
+      "name": "Stab",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 26
+    },
+    {
+      "id": "STUNTY",
+      "name": "Stunty",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 27
+    },
+    {
+      "id": "SWOOP",
+      "name": "Swoop",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 27
+    },
+    {
+      "id": "TAKE_ROOT",
+      "name": "Take Root",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 27
+    },
+    {
+      "id": "THROW_TEAM_MATE",
+      "name": "Throw Team-Mate",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 28
+    },
+    {
+      "id": "TIMMMBER",
+      "name": "Timmm-Ber!",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 28
+    },
+    {
+      "id": "TITCHY",
+      "name": "Titchy",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 28
+    },
+    {
+      "id": "TRICKSTER",
+      "name": "Trickster",
+      "category": "traits",
+      "availability": "active",
+      "mandatory": false,
+      "parameter": null,
+      "source_page": 28
+    },
+    {
+      "id": "UNCHANNELLED_FURY",
+      "name": "Unchannelled Fury",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 28
+    },
+    {
+      "id": "UNSTEADY",
+      "name": "Unsteady",
+      "category": "traits",
+      "availability": "passive",
+      "mandatory": true,
+      "parameter": null,
+      "source_page": 29
+    }
+  ]
+}

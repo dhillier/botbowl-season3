@@ -47,6 +47,8 @@ def parse_sc(sc):
             parsed.append(SkillCategory.Mutation)
         elif cat == "E":
             parsed.append(SkillCategory.Extraordinary)
+        elif cat == "D":
+            parsed.append(SkillCategory.Devious)
     return parsed
 
 
@@ -59,17 +61,26 @@ def load_rule_set(name, debug=False, all_rules=True):
     """
 
     if name == 'BB2025':
-        with open(get_data_path('rules/BB2025.json')) as source:
-            data = json.load(source)
-        race = Race('Human', [], data['reroll_cost'], True, False)
-        for profile in data['positions']:
-            race.roles.append(Role(
-                profile['name'], ['Human'], profile['ma'], profile['st'],
-                profile['ag'], profile['av'], [parse_enum(Skill, s) for s in profile['skills']],
-                profile['cost'], False, pa=profile['pa'], target_characteristics=True,
-                keywords=profile.get('keywords', [])))
-        # Only the selected fixed roster is supported; no league/star-player data.
-        return RuleSet(name, races=[race], star_players=[], inducements=[],
+        from botbowl.core.roster import load_team_catalog, skill_spec
+        races = []
+        human_aliases = {'Human Lineman': 'Lineman', 'Human Thrower': 'Thrower',
+                         'Human Catcher': 'Catcher', 'Human Blitzer': 'Blitzer'}
+        for data in load_team_catalog()['teams']:
+            race = Race(data['name'], [], data['reroll_cost'], data['apothecary'], False)
+            for profile in data['positions']:
+                specs = [skill_spec(label) for label in profile['skills']]
+                role_name = human_aliases.get(profile['name'], profile['name']) if data['id'] == 'human' else profile['name']
+                race.roles.append(Role(
+                    role_name, [race.name], profile['ma'], profile['st'], profile['ag'], profile['av'],
+                    [Skill[key] for key, parameter in specs], profile['cost'], False,
+                    parse_sc(profile['primary']), parse_sc(profile['secondary']),
+                    pa=profile['pa'], target_characteristics=True, keywords=profile['keywords'],
+                    skill_parameters={Skill[key]: parameter for key, parameter in specs if parameter is not None},
+                    max_count=profile['max'], aliases=[profile['name']]))
+            races.append(race)
+        # Catalog data is available independently of the fixed-match validation.
+        # League mechanics and star-player stat profiles are not inferred from names.
+        return RuleSet(name, races=races, star_players=[], inducements=[],
                        spp_actions={}, spp_levels={}, improvements={})
 
     path = get_data_path('rules/' + name + '.xml')

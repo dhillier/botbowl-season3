@@ -19,6 +19,15 @@ import time
 from abc import abstractmethod, ABCMeta
 
 
+SEASON3_SPECIAL_ACTIONS = {
+    Skill.STAB: (ActionType.START_STAB, ActionType.STAB),
+    Skill.HYPNOTIC_GAZE: (ActionType.START_HYPNOTIC_GAZE, ActionType.HYPNOTIC_GAZE),
+    Skill.PROJECTILE_VOMIT: (ActionType.START_PROJECTILE_VOMIT, ActionType.PROJECTILE_VOMIT),
+    Skill.BREATHE_FIRE: (ActionType.START_BREATHE_FIRE, ActionType.BREATHE_FIRE),
+    Skill.MONSTROUS_MOUTH: (ActionType.START_CHOMP, ActionType.CHOMP),
+    Skill.CHAINSAW: (ActionType.START_CHAINSAW, ActionType.CHAINSAW)}
+
+
 class Procedure(Reversible):
 
     def __init__(self, game, context=None, ignored_keys=None):
@@ -200,7 +209,9 @@ class Apothecary(Procedure):
                 self.game.pitch_to_kod(self.player)
             return True
         if action.action_type == ActionType.USE_APOTHECARY:
-            self.roll_second = DiceRoll([D16(self.game.rng)], roll_type=RollType.CASUALTY_ROLL)
+            self.roll_second = DiceRoll([D16(self.game.rng)],
+                                       modifiers=self.player.num_niggling_injuries() + int(self.player.has_skill(Skill.DECAY)),
+                                       roll_type=RollType.CASUALTY_ROLL)
             self.casualty_second, self.effect_second = _season3_casualty_result(self.roll_second)
             self.player.team.state.apothecaries -= 1
             self.waiting_apothecary = True
@@ -221,7 +232,8 @@ class Apothecary(Procedure):
 
 class Armor(Procedure):
 
-    def __init__(self, game, player, modifiers=0, inflictor=None, foul=False, foul_check=None):
+    def __init__(self, game, player, modifiers=0, inflictor=None, foul=False, foul_check=None,
+                 damage_skill=None, claws=False, lone_fouler=False, knockdown_on_break=False):
         super().__init__(game)
         self.player = player
         self.modifiers = modifiers
@@ -232,14 +244,21 @@ class Armor(Procedure):
         self.inflictor = inflictor
         self.ejected = False
         self.foul_check = foul_check
+        self.damage_skill = damage_skill
+        self.claws = claws
+        self.lone_fouler = lone_fouler
+        self.lone_fouler_used = False
+        self.knockdown_on_break = knockdown_on_break
 
     def step(self, action):
 
         # Roll
         roll = DiceRoll([D6(self.game.rng), D6(self.game.rng)], roll_type=RollType.ARMOR_ROLL)
-        roll.modifiers = self.modifiers
+        iron_skin = (self.game.is_season3 and self.player.has_skill(Skill.IRON_HARD_SKIN)
+                     and self.inflictor is not None and self.inflictor.team != self.player.team)
+        roll.modifiers = 0 if iron_skin else self.modifiers
         roll.target = self.player.get_armor_target()
-        result = roll.get_sum() + self.modifiers
+        result = roll.get_result()
         self.armor_rolled = True
 
         armor_broken = False
@@ -248,13 +267,16 @@ class Armor(Procedure):
 
         if not self.foul:
             # Armor broken - Claws
-            if roll.sum >= 8 and self.inflictor is not None and self.inflictor.has_skill(Skill.CLAWS):
+            if roll.sum >= 8 and not iron_skin and (self.claws if self.game.is_season3 else
+                    self.inflictor is not None and self.inflictor.has_skill(Skill.CLAWS)):
                 armor_broken = True
 
             # Armor broken
             if result >= roll.target:
                 armor_broken = True
-            elif result == roll.target -1 and self.inflictor is not None and self.inflictor.has_skill(Skill.MIGHTY_BLOW):
+            elif not iron_skin and not armor_broken and result == roll.target -1 and (
+                    self.damage_skill is not None if self.game.is_season3 else
+                    self.inflictor is not None and self.inflictor.has_skill(Skill.MIGHTY_BLOW)):
                 # only use mighty_blow if it makes the armour break
                 roll.modifiers += 1
                 armor_broken = True
@@ -262,8 +284,8 @@ class Armor(Procedure):
         else:
 
             # Armor broken - Dirty player
-            if self.inflictor is not None and self.inflictor.has_skill(Skill.DIRTY_PLAYER) \
-                    and result + 1 >= self.player.get_armor_target():
+            if not iron_skin and self.inflictor is not None and self.inflictor.has_usable_skill(Skill.DIRTY_PLAYER) \
+                    and result == self.player.get_armor_target() - 1:
                 roll.modifiers += 1
                 armor_broken = True
                 dirty_player_used = True
@@ -271,6 +293,12 @@ class Armor(Procedure):
             # Armor broken
             if result >= roll.target:
                 armor_broken = True
+
+        if self.game.is_season3 and not armor_broken and self.lone_fouler and not self.lone_fouler_used:
+            self.lone_fouler_used = True
+            self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.inflictor,
+                                     skill=Skill.LONE_FOULER, rolls=[roll]))
+            return False
 
         # EJECTION?
         if self.foul and roll.same():
@@ -282,9 +310,13 @@ class Armor(Procedure):
         if self.ejected and self.foul_check is not None:
             self.foul_check.caught = True
         if armor_broken:
-            Injury(self.game, self.player, self.inflictor, foul=self.foul,
-                   mighty_blow_used=mighty_blow_used, dirty_player_used=dirty_player_used,
-                   foul_check=self.foul_check)
+            if self.knockdown_on_break:
+                KnockDown(self.game, self.player, armor_roll=False, inflictor=self.inflictor,
+                          turnover=self.player.team == self.game.state.current_team)
+            else:
+                Injury(self.game, self.player, self.inflictor, foul=self.foul,
+                       mighty_blow_used=mighty_blow_used, dirty_player_used=dirty_player_used,
+                       foul_check=self.foul_check, damage_skill=self.damage_skill)
             self.game.report(Outcome(OutcomeType.ARMOR_BROKEN, player=self.player, opp_player=self.inflictor,
                                      rolls=[roll]))
         else:
@@ -318,6 +350,10 @@ class Stab(Procedure):
             self.gfi = False
             GFI(self.game, self.attacker, self.attacker.position)
             return False
+
+        if self.game.is_season3:
+            SpecialAttack(self.game, self.attacker, self.defender, Skill.STAB)
+            return True
 
         # Stab!
         self.roll = DiceRoll([D6(self.game.rng), D6(self.game.rng)], lowest_fail=False, highest_succeed=False)
@@ -390,13 +426,23 @@ class Block(Procedure):
         self.waiting_foul_appearance = False
         self.foul_appearance = None
         self.cheering_assist = None
+        self.trickster = None
 
     def start(self):
-        self.waiting_dump_off = self.game.get_ball_carrier() == self.defender and self.defender.has_skill(Skill.DUMP_OFF) and not self.frenzy_block
+        self.waiting_dump_off = self.game.get_ball_carrier() == self.defender and self.defender.has_usable_skill(Skill.DUMP_OFF) and not self.frenzy_block and not (self.game.is_season3 and self.defender.has_skill(Skill.MY_BALL))
         self.waiting_foul_appearance = self.defender.has_skill(Skill.FOUL_APPEARANCE)
+        if self.game.is_season3 and self.defender.has_usable_skill(Skill.TRICKSTER):
+            self.trickster = Trickster(self.game, self.attacker, self.defender)
 
     def end(self):
         self.attacker.state.has_blocked = True
+        if self.game.is_season3 and self.selected_die is not None:
+            AfterBlock(self.game, self.attacker, self.defender,
+                       knocked_down=self.selected_die in (BBDieResult.DEFENDER_DOWN,
+                                                          BBDieResult.DEFENDER_STUMBLES,
+                                                          BBDieResult.BOTH_DOWN))
+        if self.trickster is not None and self.trickster.used and self.game.is_touchdown(self.defender):
+            Touchdown(self.game, self.defender)
 
     def step(self, action):
 
@@ -412,6 +458,8 @@ class Block(Procedure):
                 self.foul_appearance = FoulAppearance(self.game, self.attacker, self.defender)
                 return False
             elif self.foul_appearance.revolted:
+                if self.game.is_season3:
+                    EndPlayerTurn(self.game, self.attacker)
                 return True
             else:
                 self.waiting_foul_appearance = False
@@ -556,7 +604,7 @@ class Block(Procedure):
         # Dice result
         if self.selected_die == BBDieResult.ATTACKER_DOWN:
             # Turnover(self.game)
-            KnockDown(self.game, self.attacker, inflictor=self.defender, turnover=True)
+            KnockDown(self.game, self.attacker, inflictor=self.defender, turnover=True, block=True)
             return True
 
         elif self.selected_die == BBDieResult.BOTH_DOWN:
@@ -597,22 +645,23 @@ class Block(Procedure):
         return False
 
     def both_down(self):
-        if self.game.is_season3:
-            # Both fall together. Neither may catch the other's bouncing ball
-            # while waiting for their own armour/injury procedure to run.
-            for player in (self.attacker, self.defender):
-                if not player.has_usable_skill(Skill.BLOCK):
-                    player.place_prone()
+        falling = []
         # Attacker down
         if not self.attacker.has_usable_skill(Skill.BLOCK):
-            KnockDown(self.game, self.attacker, inflictor=self.defender, turnover=True)
+            KnockDown(self.game, self.attacker, inflictor=self.defender, turnover=True, block=True)
+            falling.append(self.attacker)
         else:
             self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.attacker, skill=Skill.BLOCK))
         # Defender down
         if not self.defender.has_usable_skill(Skill.BLOCK):
-            KnockDown(self.game, self.defender, inflictor=self.attacker)
+            KnockDown(self.game, self.defender, inflictor=self.attacker, block=True)
+            falling.append(self.defender)
         else:
             self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.defender, skill=Skill.BLOCK))
+        if self.game.is_season3:
+            # Snapshot skill eligibility in KnockDown before both become Prone.
+            for player in falling:
+                player.place_prone()
         return True
 
     def available_actions(self):
@@ -742,7 +791,8 @@ class Bounce(Procedure):
 
 class Casualty(Procedure):
 
-    def __init__(self, game, player, inflictor=None, decay=False, blood_lust=False, always_hungry=False):
+    def __init__(self, game, player, inflictor=None, decay=False, blood_lust=False, always_hungry=False,
+                 badly_hurt=False):
         super().__init__(game)
         self.player = player
         self.inflictor = inflictor
@@ -754,13 +804,30 @@ class Casualty(Procedure):
         self.regeneration = None
         self.blood_lust = blood_lust
         self.always_hungry = always_hungry
+        self.badly_hurt = badly_hurt
 
     def step(self, action):
 
         if self.game.is_season3:
-            self.roll = DiceRoll([D16(self.game.rng)], modifiers=self.player.num_niggling_injuries(),
-                                 roll_type=RollType.CASUALTY_ROLL)
-            self.casualty, self.effect = _season3_casualty_result(self.roll)
+            if self.always_hungry:
+                self.game.apply_casualty(self.player, self.inflictor, Season3CasualtyType.DEAD,
+                                         CasualtyEffect.DEAD, DiceRoll([], roll_type=RollType.CASUALTY_ROLL))
+                return True
+            if self.regeneration is None and self.player.has_skill(Skill.REGENERATION):
+                self.regeneration = Regeneration(self.game, self.player)
+                return False
+            if self.regeneration is not None and self.regeneration.regenerates:
+                if self.player.position is not None:
+                    self.game.pitch_to_reserves(self.player)
+                return True
+            if self.badly_hurt or self.blood_lust:
+                self.roll = DiceRoll([], roll_type=RollType.CASUALTY_ROLL)
+                self.casualty, self.effect = Season3CasualtyType.BADLY_HURT, CasualtyEffect.NONE
+            else:
+                self.roll = DiceRoll([D16(self.game.rng)],
+                                     modifiers=self.player.num_niggling_injuries() + int(self.player.has_skill(Skill.DECAY)),
+                                     roll_type=RollType.CASUALTY_ROLL)
+                self.casualty, self.effect = _season3_casualty_result(self.roll)
             self.game.report(Outcome(OutcomeType.CASUALTY_RESULT, player=self.player,
                                      n=self.casualty.name, rolls=[self.roll]))
             if self.player.team.state.apothecaries:
@@ -1193,7 +1260,9 @@ class Foul(Procedure):
 
         # Armor roll
         check = FoulEjection(self.game, self.fouler) if self.game.is_season3 else None
-        Armor(self.game, self.defender, modifiers=modifier, inflictor=self.fouler, foul=True, foul_check=check)
+        Armor(self.game, self.defender, modifiers=modifier, inflictor=self.fouler, foul=True, foul_check=check,
+              lone_fouler=self.game.is_season3 and not assists_from and not assists_to and
+              self.fouler.has_usable_skill(Skill.LONE_FOULER))
 
         return True
 
@@ -1213,6 +1282,7 @@ class ResetHalf(Procedure):
             if self.game.is_season3:
                 team.state.drive_rerolls = 0
                 team.state.cheering_fans = False
+                team.state.leader_reroll = False
         return True
 
     def available_actions(self):
@@ -1302,7 +1372,7 @@ class Half(Procedure):
 
 class Injury(Procedure):
 
-    def __init__(self, game, player, inflictor=None, foul=False, mighty_blow_used=False, dirty_player_used=False, in_crowd=False, blood_lust=False, foul_check=None):
+    def __init__(self, game, player, inflictor=None, foul=False, mighty_blow_used=False, dirty_player_used=False, in_crowd=False, blood_lust=False, foul_check=None, damage_skill=None):
         super().__init__(game)
         self.player = player
         self.inflictor = inflictor
@@ -1314,6 +1384,7 @@ class Injury(Procedure):
         self.in_crowd = in_crowd
         self.blood_lust = blood_lust
         self.foul_check = foul_check
+        self.damage_skill = damage_skill
 
     def step(self, action):
 
@@ -1334,15 +1405,22 @@ class Injury(Procedure):
                                 self.foul else 0
             mighty_blow = 1 if self.inflictor.has_skill(Skill.MIGHTY_BLOW) and not self.mighty_blow_used and not \
                 self.foul else 0
+        if self.game.is_season3:
+            mighty_blow = int(self.damage_skill is not None and not self.mighty_blow_used and not self.foul)
 
         # EJECTION
-        if self.foul and roll.same() and not self.inflictor.has_skill(Skill.SNEAKY_GIT):
+        if self.foul and roll.same() and (self.game.is_season3 or not self.inflictor.has_skill(Skill.SNEAKY_GIT)):
             self.ejected = True
             if self.foul_check is not None:
                 self.foul_check.caught = True
 
         # CASUALTY
-        roll.modifiers = stunty + mighty_blow + dirty_player + niggling
+        roll.modifiers = (0 if self.game.is_season3 else stunty) + mighty_blow + dirty_player + niggling
+        if self.game.is_season3 and stunty and roll.get_result() == 9:
+            self.game.report(Outcome(OutcomeType.CASUALTY, player=self.player, opp_player=self.inflictor, rolls=[roll]))
+            Casualty(self.game, self.player, inflictor=self.inflictor, badly_hurt=True,
+                     blood_lust=self.blood_lust)
+            return True
         if roll.get_result() >= 10:
             roll.modifiers = stunty + mighty_blow + dirty_player
             self.game.report(Outcome(OutcomeType.CASUALTY, player=self.player, opp_player=self.inflictor, rolls=[roll]))
@@ -1547,6 +1625,13 @@ class Kickoff(Procedure):
     def step(self, action):
         self.game.state.gentle_gust = False
         if self.game.is_season3:
+            for team in self.game.state.teams:
+                for player in self.game.get_players_on_pitch(team):
+                    player.state.played_drive = True
+                if team.state.leader_half_checked != self.game.state.half:
+                    team.state.leader_half_checked = self.game.state.half
+                    team.state.leader_reroll = any(p.has_skill(Skill.LEADER)
+                                                   for p in self.game.get_players_on_pitch(team))
             players = self.game.get_players_on_pitch(self.game.get_kicking_team())
             centre = [p for p in players if self.game.get_tile(p.position) not in (
                 Tile.HOME_WING_LEFT, Tile.HOME_WING_RIGHT, Tile.AWAY_WING_LEFT, Tile.AWAY_WING_RIGHT)]
@@ -1848,7 +1933,8 @@ class KickoffTable(Procedure):
 class KnockDown(Procedure):
 
     def __init__(self, game, player, armor_roll=True, injury_roll=True, modifiers=0, inflictor=None,
-                 in_crowd=False, modifiers_opp=0, turnover=False, blood_lust=False):
+                 in_crowd=False, modifiers_opp=0, turnover=False, blood_lust=False, block=False,
+                 damage_skill=None):
         super().__init__(game)
         self.player = player
         self.armor_roll = armor_roll
@@ -1857,10 +1943,57 @@ class KnockDown(Procedure):
         self.modifiers_opp = modifiers_opp
         self.inflictor = inflictor
         self.in_crowd = in_crowd
-        self.turnover = turnover
+        self.turnover = turnover or (game.is_season3 and game.has_ball(player) and
+                                     player.team == game.state.current_team)
         self.blood_lust = blood_lust
+        self.damage_skill = damage_skill
+        if block and inflictor is not None and inflictor.has_usable_skill(Skill.MIGHTY_BLOW):
+            self.damage_skill = Skill.MIGHTY_BLOW
+        self.claws = block and inflictor is not None and inflictor.has_skill(Skill.CLAWS)
+        if game.is_season3 and armor_roll and player.has_usable_skill(Skill.CHAINSAW):
+            self.modifiers += 3
+        self.steady_footing = (game.is_season3 and armor_roll and not in_crowd and
+                              player.has_usable_skill(Skill.STEADY_FOOTING))
+        self.steady_checked = False
+        self.safe_hands = (game.is_season3 and player.has_usable_skill(Skill.SAFE_PAIR_OF_HANDS)
+                           and not player.has_skill(Skill.MY_BALL) and game.has_ball(player))
+        self.safe_hands_checked = False
+        self.saboteur = game.is_season3 and block and player.has_usable_skill(Skill.SABOTEUR)
+        self.saboteur_checked = False
+        self.saboteur_roll = None
 
     def step(self, action):
+        if self.steady_footing and not self.steady_checked:
+            self.steady_checked = True
+            roll = DiceRoll([D6(self.game.rng)], target=6)
+            self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.player,
+                                     skill=Skill.STEADY_FOOTING, rolls=[roll]))
+            if roll.is_d6_success():
+                self.player.state.up = True
+                if self.player == self.game.get_active_player():
+                    ball = self.game.get_ball_at(self.player.position)
+                    if ball is not None and not ball.is_carried:
+                        Pickup(self.game, ball, self.player)
+                    elif self.game.has_ball(self.player) and self.game.is_touchdown(self.player):
+                        Touchdown(self.game, self.player)
+                return True
+            return False
+        if self.saboteur and not self.saboteur_checked:
+            self.saboteur_checked = True
+            if action.action_type == ActionType.USE_SKILL:
+                self.saboteur_roll = DiceRoll([D6(self.game.rng)], target=4)
+                self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.player,
+                                         skill=Skill.SABOTEUR, rolls=[self.saboteur_roll]))
+            return False
+        if self.safe_hands and not self.safe_hands_checked:
+            self.safe_hands_checked = True
+            if action is not None and action.action_type == ActionType.PLACE_BALL:
+                ball = self.game.get_ball_at(self.player.position)
+                if ball is not None:
+                    ball.is_carried = False
+                    ball.move_to(action.position)
+                    self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.player,
+                                             skill=Skill.SAFE_PAIR_OF_HANDS, position=action.position))
 
         # Knock down player
         self.player.place_prone()
@@ -1881,13 +2014,32 @@ class KnockDown(Procedure):
             self.game.report(Outcome(OutcomeType.FUMBLE, player=self.player, opp_player=self.inflictor))
 
         # If armor roll should be made. Injury is also nested in armor.
-        if self.injury_roll and not self.armor_roll:
+        if self.saboteur_roll is not None and self.saboteur_roll.is_d6_success():
+            KnockOut(self.game, self.player, self.saboteur_roll, inflictor=self.inflictor)
+            if self.inflictor is not None and self.inflictor.position is not None:
+                KnockDown(self.game, self.inflictor, turnover=self.game.has_ball(self.inflictor))
+        elif self.injury_roll and not self.armor_roll:
             Injury(self.game, self.player, inflictor=self.inflictor if not self.in_crowd else None,
                    in_crowd=self.in_crowd, blood_lust=self.blood_lust)
         elif self.armor_roll:
-            Armor(self.game, self.player, modifiers=self.modifiers, inflictor=self.inflictor)
+            Armor(self.game, self.player, modifiers=self.modifiers, inflictor=self.inflictor,
+                  damage_skill=self.damage_skill, claws=self.claws)
 
         return True
+
+    def available_actions(self):
+        if self.steady_footing and not self.steady_checked:
+            return []
+        if self.saboteur and not self.saboteur_checked:
+            return [ActionChoice(kind, team=self.player.team, skill=Skill.SABOTEUR)
+                    for kind in (ActionType.USE_SKILL, ActionType.DONT_USE_SKILL)]
+        if self.safe_hands and not self.safe_hands_checked:
+            squares = self.game.get_adjacent_squares(self.player.position, occupied=False)
+            if squares:
+                return [ActionChoice(ActionType.PLACE_BALL, team=self.player.team, positions=squares),
+                        ActionChoice(ActionType.DONT_USE_SKILL, team=self.player.team,
+                                     skill=Skill.SAFE_PAIR_OF_HANDS)]
+        return []
 
 
 class KnockOut(Procedure):
@@ -1927,34 +2079,131 @@ class Jump(Procedure):
             GFI(game, player, self.origin)
 
     def step(self, action):
+        Season3Escape(self.game, self.player, self.position, jump=True)
+        return True
+
+
+class Season3Escape(Procedure):
+    """Dodge/jump tests: modifiers, re-rolls, then one Diving Tackle decision."""
+
+    def __init__(self, game, player, position, jump=False):
+        super().__init__(game)
+        self.player = player
+        self.position = position
+        self.origin = player.position
+        self.jump = jump
+        self.roll = None
+        self.reroll = None
+        self.phase = 'tentacles'
+        self.holders = [p for p in game.get_adjacent_opponents(player)
+                        if p.has_usable_skill(Skill.TENTACLES)]
+        self.divers = [p for p in game.get_adjacent_opponents(player)
+                       if p.has_usable_skill(Skill.DIVING_TACKLE)]
+        self.diver = None
+        self.break_bonus = 0
+        self.break_checked = False
+        self.arm_bars = [p for p in game.get_adjacent_opponents(player) if p.has_usable_skill(Skill.ARM_BAR)]
+
+    def step(self, action):
+        if self.phase == 'tentacles':
+            self.phase = 'roll'
+            if self.holders and action.action_type == ActionType.USE_SKILL:
+                holder = action.player or self.holders[0]
+                roll = DiceRoll([D6(self.game.rng)], target=6,
+                                modifiers=holder.get_st() - self.player.get_st())
+                self.game.report(Outcome(OutcomeType.SKILL_USED, player=holder,
+                                         skill=Skill.TENTACLES, rolls=[roll]))
+                if roll.is_d6_success():
+                    EndPlayerTurn(self.game, self.player)
+                    return True
+            return False
+
+        if self.phase == 'break_tackle':
+            self.break_checked = True
+            if action.action_type == ActionType.USE_SKILL:
+                self.player.use_skill(Skill.BREAK_TACKLE)
+                self.break_bonus = 1 if self.player.get_st() <= 3 else 2 if self.player.get_st() == 4 else 3
+                self.roll.modifiers += self.break_bonus
+                self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.player, skill=Skill.BREAK_TACKLE))
+            self.phase = 'rolled'
+
+        if self.phase == 'diving_tackle':
+            if action.action_type == ActionType.USE_SKILL:
+                self.diver = action.player or self.divers[0]
+                self.roll.modifiers -= 2
+                self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.diver, skill=Skill.DIVING_TACKLE))
+            return self.resolve()
+
+        if self.reroll is not None:
+            if self.reroll.use_reroll:
+                self.roll = None
+                self.reroll = None
+                self.break_checked = bool(self.break_bonus)
+            else:
+                return self.resolve()
+
         if self.roll is None:
-            self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.JUMP_ROLL)
+            self.roll = DiceRoll([D6(self.game.rng)],
+                                roll_type=RollType.JUMP_ROLL if self.jump else RollType.AGILITY_ROLL)
             self.roll.target = self.player.get_ag_target()
-            self.roll.modifiers = self.game.get_jump_modifiers(self.player, self.origin, self.position)
-            if self.roll.is_d6_success():
-                self.game.move(self.player, self.position)
-                self.game.report(Outcome(OutcomeType.SUCCESSFUL_JUMP, player=self.player, rolls=[self.roll]))
-                ball = self.game.get_ball_at(self.position)
-                if ball is not None and not ball.is_carried:
-                    if self.player.has_skill(Skill.NO_HANDS):
-                        Bounce(self.game, ball)
-                    else:
-                        Pickup(self.game, ball, self.player,
-                               secure=self.game.state.player_action_type == PlayerActionType.SECURE_BALL)
-                elif self.game.has_ball(self.player) and self.game.is_touchdown(self.player):
-                    Touchdown(self.game, self.player)
-                return True
-            self.game.report(Outcome(OutcomeType.FAILED_JUMP, player=self.player, rolls=[self.roll]))
+            self.roll.modifiers = (self.game.get_jump_modifiers(self.player, self.origin, self.position)
+                                   if self.jump else self.game.get_dodge_modifiers(self.player, self.position))
+            self.roll.modifiers += self.break_bonus
+        if not self.roll.is_d6_success():
+            if not self.jump and not self.break_checked and self.player.can_use_skill(Skill.BREAK_TACKLE):
+                bonus = 1 if self.player.get_st() <= 3 else 2 if self.player.get_st() == 4 else 3
+                if self.roll.get_sum() != 1 and self.roll.get_result() + bonus >= self.roll.target:
+                    self.phase = 'break_tackle'
+                    return False
+            self.game.report(Outcome(OutcomeType.FAILED_JUMP if self.jump else OutcomeType.FAILED_DODGE,
+                                     player=self.player, rolls=[self.roll]))
             self.reroll = Reroll(self.game, self.player, self)
             return False
-        if self.reroll.use_reroll:
-            self.roll = None
-            self.reroll = None
+        if self.divers:
+            self.phase = 'diving_tackle'
             return False
-        if self.roll.get_sum() != 1:
+        return self.resolve()
+
+    def resolve(self):
+        success = self.roll.is_d6_success()
+        shadowers = [p for p in self.game.get_adjacent_opponents(self.player)
+                     if p.has_usable_skill(Skill.SHADOWING)] if not self.jump else []
+        if success or not self.jump or self.roll.get_sum() != 1:
             self.game.move(self.player, self.position)
-        KnockDown(self.game, self.player, turnover=True)
+        if self.diver is not None:
+            self.game.move(self.diver, self.origin)
+        if success:
+            self.game.report(Outcome(OutcomeType.SUCCESSFUL_JUMP if self.jump else OutcomeType.SUCCESSFUL_DODGE,
+                                     player=self.player, position=self.position, rolls=[self.roll]))
+            ball = self.game.get_ball_at(self.position)
+            if ball is not None and not ball.is_carried:
+                Pickup(self.game, ball, self.player,
+                       secure=self.game.state.player_action_type == PlayerActionType.SECURE_BALL)
+            elif self.game.has_ball(self.player) and self.game.is_touchdown(self.player):
+                Touchdown(self.game, self.player)
+                shadowers = []
+        else:
+            KnockDown(self.game, self.player, turnover=True,
+                      inflictor=self.arm_bars[0] if self.arm_bars else None,
+                      damage_skill=Skill.ARM_BAR if self.arm_bars else None)
+        if shadowers:
+            Shadowing(self.game, self.player, self.origin, shadowers)
+        if self.diver is not None:
+            KnockDown(self.game, self.diver, armor_roll=False, injury_roll=False)
         return True
+
+    def available_actions(self):
+        players, skill = [], None
+        if self.phase == 'tentacles':
+            players, skill = self.holders, Skill.TENTACLES
+        elif self.phase == 'diving_tackle':
+            players, skill = self.divers, Skill.DIVING_TACKLE
+        elif self.phase == 'break_tackle':
+            players, skill = [self.player], Skill.BREAK_TACKLE
+        if players:
+            return [ActionChoice(ActionType.USE_SKILL, team=players[0].team, players=players, skill=skill),
+                    ActionChoice(ActionType.DONT_USE_SKILL, team=players[0].team, skill=skill)]
+        return []
 
 
 class Leap(Procedure):
@@ -2028,7 +2277,9 @@ class Shadowing(Procedure):
     def start(self):
         able_players = []
         for player in self.shadowers:
-            if player.has_tackle_zone() and not player.state.taken_root:
+            if player.has_tackle_zone() and not player.state.taken_root and (
+                    not self.game.is_season3 or (player.state.shadowing_uses < player.get_ma()
+                                                and self.game.get_player_at(self.position) is None)):
                 able_players.append(player)
         self.shadowers = able_players
         self.shadower = self.shadowers[0] if self.shadowers else None
@@ -2039,6 +2290,15 @@ class Shadowing(Procedure):
             return True
 
         if self.roll is None and action.action_type == ActionType.USE_SKILL:
+            if self.game.is_season3:
+                self.shadower = action.player or self.shadower
+                self.shadower.state.shadowing_uses += 1
+                self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.SHADOWING_ROLL, target=4)
+                self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.shadower,
+                                         skill=Skill.SHADOWING, rolls=[self.roll]))
+                if self.roll.is_d6_success():
+                    self.game.move(self.shadower, self.position)
+                return True
             self.roll = DiceRoll(dice=[D6(self.game.rng), D6(self.game.rng)], roll_type=RollType.SHADOWING_ROLL, highest_succeed=False)
             self.roll.target = 7
             self.roll.modifiers = self.player.get_ma() - self.shadower.get_ma()
@@ -2060,6 +2320,8 @@ class Shadowing(Procedure):
             return True
 
         # Dont use shadow
+        if self.game.is_season3:
+            return True
         self.shadowers.remove(self.shadower)
         self.game.remove_secondary_clocks()
         if self.shadowers:
@@ -2076,7 +2338,7 @@ class Shadowing(Procedure):
         if self.shadower is None or self.reroll is not None:
             return []
         return [
-            ActionChoice(ActionType.USE_SKILL, team=self.team, players=[self.shadower], skill=Skill.SHADOWING),
+            ActionChoice(ActionType.USE_SKILL, team=self.team, players=self.shadowers if self.game.is_season3 else [self.shadower], skill=Skill.SHADOWING),
             ActionChoice(ActionType.DONT_USE_SKILL, team=self.team, players=[self.shadower], skill=Skill.SHADOWING)
         ]
 
@@ -2124,7 +2386,7 @@ class Move(Procedure):
         self.dodge = dodge
         self.dodge_proc = None
         self.gfi = gfi
-        self.tentaclers = [tentacler for tentacler in self.game.get_adjacent_opponents(self.player, skill=Skill.TENTACLES, standing=True) if tentacler.has_tackle_zone()]
+        self.tentaclers = [] if game.is_season3 else [tentacler for tentacler in self.game.get_adjacent_opponents(self.player, skill=Skill.TENTACLES, standing=True) if tentacler.has_tackle_zone()]
         self.tentacles_used = False
 
     def step(self, action):
@@ -2137,6 +2399,12 @@ class Move(Procedure):
             Tentacles(self.game, self.player, self.position, next_tentacler, self)
             self.tentaclers.remove(next_tentacler)
             return False
+
+        if self.game.is_season3 and self.dodge:
+            Season3Escape(self.game, self.player, self.position)
+            if self.gfi:
+                GFI(self.game, self.player, self.position)
+            return True
 
         if self.dodge:
             self.dodge_proc = Dodge(self.game, self.player, self.position)
@@ -2152,7 +2420,7 @@ class Move(Procedure):
         # If this is reached then Dodge and GFI was passed
 
         # Shadowing
-        shadowers = self.game.get_adjacent_opponents(self.player, down=False, skill=Skill.SHADOWING)
+        shadowers = [] if self.game.is_season3 else self.game.get_adjacent_opponents(self.player, down=False, skill=Skill.SHADOWING)
         position = self.player.position
 
         self.game.move(self.player, self.position)
@@ -2202,6 +2470,8 @@ class GFI(Procedure):
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.GFI_ROLL)
             self.roll.target = 2
             self.roll.modifiers = (-1 if self.game.is_season3 else 1) if self.game.state.weather == WeatherType.BLIZZARD else 0
+            if self.game.is_season3:
+                self.roll.modifiers = 2 - self.game.get_rush_target(self.player)
 
             if self.roll.is_d6_success():
 
@@ -2227,7 +2497,7 @@ class GFI(Procedure):
             return False
 
         # Shadowing
-        shadowers = self.game.get_adjacent_opponents(self.player, down=False, skill=Skill.SHADOWING)
+        shadowers = [] if self.game.is_season3 else self.game.get_adjacent_opponents(self.player, down=False, skill=Skill.SHADOWING)
         shadow_position = self.player.position
 
         # Player trips
@@ -2370,6 +2640,37 @@ class TurnoverIfPossessionLost(Procedure):
         return True
 
 
+class Animosity(Procedure):
+    def __init__(self, game, player, receiver):
+        super().__init__(game)
+        self.player = player
+        self.receiver = receiver
+        self.roll = None
+        self.reroll = None
+        self.failed = False
+
+    def step(self, action):
+        if self.receiver is None or self.receiver.team != self.player.team:
+            return True
+        keyword = self.player.skill_parameter(Skill.ANIMOSITY, 'all').casefold()
+        if keyword != 'all' and keyword not in [k.casefold() for k in self.receiver.role.keywords]:
+            return True
+        if self.roll is None:
+            self.roll = DiceRoll([D6(self.game.rng)], target=2)
+            self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.player,
+                                     skill=Skill.ANIMOSITY, rolls=[self.roll]))
+            if self.roll.is_d6_success():
+                return True
+            self.reroll = Reroll(self.game, self.player, self)
+            return False
+        if self.reroll.use_reroll:
+            self.roll = None
+            return False
+        self.failed = True
+        EndPlayerTurn(self.game, self.player)
+        return True
+
+
 class Handoff(Procedure):
 
     def __init__(self, game, ball, player, pos_to, catcher):
@@ -2379,6 +2680,7 @@ class Handoff(Procedure):
         self.pos_to = pos_to
         self.catcher = catcher
         self.eat_thrall = None
+        self.animosity = None
         
     def step(self, action):
         if self.player.state.blood_lust and self.eat_thrall is None:
@@ -2387,6 +2689,10 @@ class Handoff(Procedure):
         
         if self.eat_thrall is not None and self.eat_thrall.failed: 
             return True 
+
+        if self.game.is_season3 and self.player.has_usable_skill(Skill.ANIMOSITY) and self.animosity is None:
+            self.animosity = Animosity(self.game, self.player, self.catcher)
+            return False
         
         self.ball.move_to(self.pos_to)
         TurnoverIfPossessionLost(self.game, self.ball)
@@ -2608,8 +2914,17 @@ class Season3PassAttempt(PassAttempt):
         self.accurate = False
         self.landing_prepared = False
         self.scatter = None
+        self.animosity = None
 
     def step(self, action):
+        if self.passer.state.blood_lust and self.eat_thrall is None:
+            self.eat_thrall = EatThrall(self.game, self.passer)
+            return False
+        if self.eat_thrall is not None and self.eat_thrall.failed:
+            return True
+        if self.passer.has_usable_skill(Skill.ANIMOSITY) and self.animosity is None:
+            self.animosity = Animosity(self.game, self.passer, self.game.get_player_at(self.position))
+            return False
         if not self.landing_prepared:
             if self.roll is None:
                 self.piece.is_carried = False
@@ -2617,14 +2932,16 @@ class Season3PassAttempt(PassAttempt):
                 self.roll.target = self.passer.get_pass_target()
                 self.roll.modifiers = self.game.get_pass_modifiers(self.passer, self.pass_distance)
                 result = self.roll.get_sum()
-                self.accurate = self.roll.is_d6_success()
+                succeeded = self.roll.is_d6_success()
+                self.accurate = succeeded and self.pass_distance != PassDistance.HAIL_MARY
                 # Coach ruling, 28 October 2026: modified 1 or less. The supplied
                 # literal wording differs; see docs/season3-acceptance.md.
-                self.fumble = not self.accurate and (result == 1 or result + self.roll.modifiers <= 1)
+                self.fumble = not succeeded and (result == 1 or result + self.roll.modifiers <= 1)
                 outcome = (OutcomeType.ACCURATE_PASS if self.accurate else
                            OutcomeType.FUMBLE if self.fumble else OutcomeType.INACCURATE_PASS)
-                self.game.report(Outcome(outcome, player=self.passer, rolls=[self.roll]))
-                if not self.accurate:
+                if not (self.fumble and result == 1 and self.passer.has_usable_skill(Skill.SAFE_PASS)):
+                    self.game.report(Outcome(outcome, player=self.passer, rolls=[self.roll]))
+                if not succeeded:
                     self.reroll = Reroll(self.game, self.passer, context=self)
                     return False
             elif self.reroll is not None and self.reroll.use_reroll:
@@ -2633,6 +2950,10 @@ class Season3PassAttempt(PassAttempt):
                 return False
 
             if self.fumble:
+                if self.roll.get_sum() == 1 and self.passer.has_usable_skill(Skill.SAFE_PASS):
+                    self.piece.is_carried = True
+                    self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.passer, skill=Skill.SAFE_PASS))
+                    return True
                 self._fumble()
                 return True
             self.game.move(self.piece, self.position)
@@ -2651,6 +2972,10 @@ class Season3PassAttempt(PassAttempt):
             self.interception_tried = True
             interceptors = self.game.get_interceptors(
                 self.passer.position, self.piece.position, self.game.get_opp_team(self.passer.team))
+            if self.pass_distance == PassDistance.HAIL_MARY:
+                interceptors = []
+            elif self.passer.has_usable_skill(Skill.CLOUD_BURSTER):
+                interceptors = [p for p in interceptors if p.has_usable_skill(Skill.VERY_LONG_LEGS)]
             if interceptors:
                 Interception(self.game, interceptors[0].team, self.piece, interceptors,
                              self.passer, inaccurate=not self.accurate)
@@ -2671,15 +2996,25 @@ class Season3PassAttempt(PassAttempt):
 
 class Pickup(Procedure):
 
-    def __init__(self, game, ball, player, secure=False):
+    def __init__(self, game, ball, player, secure=False, turnover=True, score=True):
         super().__init__(game)
         self.ball = ball
         self.player = player
         self.roll = None
         self.reroll = None
         self.secure = secure
+        self.turnover = turnover
+        self.score = score
 
     def step(self, action):
+
+        if self.game.is_season3 and self.player.has_skill(Skill.NO_BALL):
+            self.game.report(Outcome(OutcomeType.FAILED_PICKUP, player=self.player,
+                                     position=self.player.position, skill=Skill.NO_BALL))
+            if self.turnover:
+                Turnover(self.game)
+            Bounce(self.game, self.ball)
+            return True
 
         # Otherwise roll if player hasn't rolled
         if self.roll is None:
@@ -2696,7 +3031,7 @@ class Pickup(Procedure):
                 self.ball.is_carried = True
                 if self.secure:
                     EndPlayerTurn(self.game, self.player)
-                if self.game.is_touchdown(self.player):
+                if self.score and self.game.is_touchdown(self.player):
                     Touchdown(self.game, self.player)
                 return True
             else:
@@ -2714,7 +3049,8 @@ class Pickup(Procedure):
             self.reroll = None
             return False
 
-        Turnover(self.game)
+        if self.turnover:
+            Turnover(self.game)
         Bounce(self.game, self.ball)
         return True
 
@@ -2821,6 +3157,7 @@ class EndPlayerTurn(Procedure):
         self.game.state.player_action_type = None
         self.player.state.has_blocked = False
         self.player.state.could_score_at_activation = False
+        self.player.state.eye_gouged = False
         return True
 
 
@@ -2856,7 +3193,7 @@ class JumpUpToBlock(Procedure):
         if self.roll is None:
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.AGILITY_ROLL)
             self.roll.target = self.player.get_ag_target()
-            self.roll.modifiers = 2
+            self.roll.modifiers = 1 if self.game.is_season3 else 2
             if self.roll.is_d6_success():
                 self.player.state.up = True
                 self.game.report(Outcome(OutcomeType.SKILL_USED, skill=Skill.JUMP_UP, player=self.player, rolls=[self.roll]))
@@ -3113,7 +3450,7 @@ class MoveAction(Procedure):
         if self.steps is not None and len(self.steps) > 0:
             return []  # No actions -> Continue path
         actions = []
-        if self.game.is_quick_snap() or not self.game.config.pathfinding_enabled:
+        if self.game.is_quick_snap() or not self.game.config.pathfinding_enabled or self.game.is_chomped(self.player):
             actions = self.game.get_adjacent_move_actions(
                 self.player, secure_ball=self.player_action_type == PlayerActionType.SECURE_BALL)
         else:
@@ -3135,7 +3472,7 @@ class MoveAction(Procedure):
         actions += self.game.get_stand_up_actions(self.player)
         actions += self.game.get_leap_actions(self.player)
         actions += self.game.get_jump_actions(self.player)
-        if self.player.has_skill(Skill.HYPNOTIC_GAZE) and self.player_action_type == PlayerActionType.MOVE:
+        if not self.game.is_season3 and self.player.has_skill(Skill.HYPNOTIC_GAZE) and self.player_action_type == PlayerActionType.MOVE:
             actions += self.game.get_hypnotic_gaze_actions(self.player)
         actions.append(ActionChoice(ActionType.END_PLAYER_TURN, team=self.player.team))
 
@@ -3143,6 +3480,205 @@ class MoveAction(Procedure):
             actions.append(ActionChoice(ActionType.UNDO, team=self.player.team))
 
         return actions
+
+
+class SpecialAction(MoveAction):
+    def __init__(self, game, player, skill):
+        super().__init__(game, player, player_action_type=PlayerActionType.SPECIAL)
+        self.skill = skill
+
+    def start(self):
+        self.game.state.player_action_type = PlayerActionType.SPECIAL
+
+    def step(self, action):
+        if action is not None and action.action_type == SEASON3_SPECIAL_ACTIONS[self.skill][1]:
+            EndPlayerTurn(self.game, self.player)
+            SpecialAttack(self.game, self.player, self.game.get_player_at(action.position), self.skill)
+            return True
+        return super().step(action)
+
+    def available_actions(self):
+        if self.steps:
+            return []
+        actions = super().available_actions() if self.skill == Skill.HYPNOTIC_GAZE else [
+            ActionChoice(ActionType.END_PLAYER_TURN, team=self.player.team)]
+        if self.player.has_usable_skill(self.skill):
+            targets = [p.position for p in self.game.get_adjacent_opponents(self.player, down=False)]
+            if targets:
+                actions.append(ActionChoice(SEASON3_SPECIAL_ACTIONS[self.skill][1], team=self.player.team,
+                                            positions=targets, skill=self.skill))
+        return actions
+
+
+class SpecialAttack(Procedure):
+    """Targeted Season 3 actions share reactions but retain their own dice rules."""
+    def __init__(self, game, attacker, defender, skill):
+        super().__init__(game)
+        self.attacker = attacker
+        self.defender = defender
+        self.skill = skill
+        self.appearance = None
+        self.appearance_checked = False
+        self.dump_checked = False
+        self.roll = None
+        self.reroll = None
+
+        self.trickster = None
+
+    def start(self):
+        if self.defender.has_usable_skill(Skill.TRICKSTER):
+            self.trickster = Trickster(self.game, self.attacker, self.defender)
+
+    def end(self):
+        if self.skill == Skill.STAB:
+            AfterBlock(self.game, self.attacker, self.defender, knocked_down=False)
+        if self.trickster is not None and self.trickster.used and self.game.is_touchdown(self.defender):
+            Touchdown(self.game, self.defender)
+
+    def step(self, action):
+        if not self.appearance_checked:
+            self.appearance_checked = True
+            if self.defender.has_skill(Skill.FOUL_APPEARANCE):
+                self.appearance = FoulAppearance(self.game, self.attacker, self.defender)
+                return False
+            return False
+        if self.appearance is not None and self.appearance.revolted:
+            EndPlayerTurn(self.game, self.attacker)
+            return True
+        if not self.dump_checked:
+            self.dump_checked = True
+            if action is not None and action.action_type == ActionType.USE_SKILL:
+                PassAction(self.game, self.defender, dump_off=True)
+                return False
+        if self.skill == Skill.HYPNOTIC_GAZE:
+            HypnoticGaze(self.game, self.attacker, self.defender)
+            return True
+        if self.skill == Skill.STAB:
+            Armor(self.game, self.defender, inflictor=self.attacker, knockdown_on_break=True)
+            return True
+        if self.roll is None:
+            target = 2 if self.skill in (Skill.PROJECTILE_VOMIT, Skill.CHAINSAW) else (
+                3 if self.skill == Skill.MONSTROUS_MOUTH else 4)
+            modifier = -1 if self.skill == Skill.BREATHE_FIRE and self.defender.get_st() >= 5 else 0
+            self.roll = DiceRoll([D6(self.game.rng)], target=target, modifiers=modifier)
+            self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.attacker,
+                                     skill=self.skill, rolls=[self.roll]))
+            if not self.roll.is_d6_success():
+                self.reroll = Reroll(self.game, self.attacker, self)
+                return False
+        elif self.reroll is not None and self.reroll.use_reroll:
+            self.roll = None
+            self.reroll = None
+            return False
+        if self.skill == Skill.PROJECTILE_VOMIT:
+            victim = self.defender if self.roll.is_d6_success() else self.attacker
+            Armor(self.game, victim, inflictor=self.attacker, knockdown_on_break=True)
+        elif self.skill == Skill.CHAINSAW:
+            if self.roll.is_d6_success():
+                Armor(self.game, self.defender, inflictor=self.attacker, modifiers=3, knockdown_on_break=True)
+            else:
+                KnockDown(self.game, self.attacker, turnover=True)
+        elif self.skill == Skill.BREATHE_FIRE:
+            if self.roll.get_sum() == 6:
+                KnockDown(self.game, self.defender, inflictor=self.attacker)
+            elif self.roll.get_result() <= 1:
+                KnockDown(self.game, self.attacker, turnover=True)
+            elif self.roll.get_result() >= 4:
+                KnockDown(self.game, self.defender, armor_roll=False, injury_roll=False)
+        elif self.skill == Skill.MONSTROUS_MOUTH and self.roll.is_d6_success():
+            self.defender.state.chomped_by = self.attacker.player_id
+            if self.defender not in self.game.state.chomped_players:
+                self.game.state.chomped_players.append(self.defender)
+        return True
+
+    def available_actions(self):
+        if (self.appearance_checked and not self.dump_checked and self.game.has_ball(self.defender)
+                and not (self.appearance is not None and self.appearance.revolted)
+                and self.defender.has_usable_skill(Skill.DUMP_OFF) and not self.defender.has_skill(Skill.MY_BALL)):
+            return [ActionChoice(kind, team=self.defender.team, players=[self.defender], skill=Skill.DUMP_OFF)
+                    for kind in (ActionType.USE_SKILL, ActionType.DONT_USE_SKILL)]
+        return []
+
+
+class Trickster(Procedure):
+    def __init__(self, game, attacker, defender):
+        super().__init__(game)
+        self.attacker = attacker
+        self.defender = defender
+        self.used = False
+
+    def step(self, action):
+        if action is not None and action.action_type == ActionType.MOVE:
+            self.used = True
+            self.game.move(self.defender, action.position)
+            self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.defender,
+                                     skill=Skill.TRICKSTER, position=action.position))
+            ball = self.game.get_ball_at(action.position)
+            if ball is not None and not ball.is_carried:
+                Pickup(self.game, ball, self.defender,
+                       turnover=self.defender.team == self.game.state.current_team, score=False)
+        return True
+
+    def available_actions(self):
+        if self.defender.state.taken_root or self.game.is_chomped(self.defender):
+            return []
+        squares = self.game.get_adjacent_squares(self.attacker.position, occupied=False)
+        if not squares:
+            return []
+        return [ActionChoice(ActionType.MOVE, team=self.defender.team, positions=squares, skill=Skill.TRICKSTER),
+                ActionChoice(ActionType.DONT_USE_SKILL, team=self.defender.team, skill=Skill.TRICKSTER)]
+
+
+class AfterBlock(Procedure):
+    def __init__(self, game, attacker, defender, knocked_down):
+        super().__init__(game)
+        self.attacker = attacker
+        self.defender = defender
+        self.knocked_down = knocked_down
+        self.pile_checked = False
+
+    def can_pile(self):
+        return (not self.pile_checked and self.knocked_down and self.defender.position is not None
+                and not self.defender.state.up and self.attacker.has_usable_skill(Skill.PILE_DRIVER)
+                and self.attacker.position is not None and
+                self.attacker.position.distance(self.defender.position) == 1)
+
+    def hit_run_squares(self):
+        if (not self.attacker.has_usable_skill(Skill.HIT_AND_RUN) or self.attacker.position is None
+                or self.attacker.state.taken_root or self.game.is_chomped(self.attacker)):
+            return []
+        return [s for s in self.game.get_adjacent_squares(self.attacker.position, occupied=False)
+                if not self.game.get_adjacent_players(s, team=self.defender.team)]
+
+    def step(self, action):
+        if self.can_pile():
+            self.pile_checked = True
+            if action.action_type == ActionType.USE_SKILL:
+                EndPlayerTurn(self.game, self.attacker)
+                KnockDown(self.game, self.attacker, armor_roll=False, injury_roll=False)
+                Foul(self.game, self.attacker, self.defender)
+                return True
+            return False
+        if action is not None and action.action_type == ActionType.MOVE:
+            self.game.move(self.attacker, action.position)
+            self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.attacker,
+                                     skill=Skill.HIT_AND_RUN, position=action.position))
+            ball = self.game.get_ball_at(action.position)
+            if ball is not None and not ball.is_carried:
+                Pickup(self.game, ball, self.attacker)
+            elif self.game.has_ball(self.attacker) and self.game.is_touchdown(self.attacker):
+                Touchdown(self.game, self.attacker)
+        return True
+
+    def available_actions(self):
+        if self.can_pile():
+            return [ActionChoice(kind, team=self.attacker.team, skill=Skill.PILE_DRIVER)
+                    for kind in (ActionType.USE_SKILL, ActionType.DONT_USE_SKILL)]
+        squares = self.hit_run_squares()
+        if squares:
+            return [ActionChoice(ActionType.MOVE, team=self.attacker.team, positions=squares, skill=Skill.HIT_AND_RUN),
+                    ActionChoice(ActionType.DONT_USE_SKILL, team=self.attacker.team, skill=Skill.HIT_AND_RUN)]
+        return []
 
 
 class SecureBallAction(MoveAction):
@@ -3203,7 +3739,10 @@ class HandoffAction(MoveAction):
 
         if action.action_type is ActionType.HANDOFF:
             if self.player.position.distance(action.position) == 1:
-                EndPlayerTurn(self.game, self.player)
+                if self.game.is_season3 and self.player.has_usable_skill(Skill.GIVE_AND_GO):
+                    MoveAction(self.game, self.player)
+                else:
+                    EndPlayerTurn(self.game, self.player)
                 ball = self.game.get_ball_at(self.player.position)
                 assert ball is not None
                 Handoff(self.game, ball, self.player, action.position,
@@ -3231,14 +3770,20 @@ class PassAction(MoveAction):
         super().__init__(game, player, player_action_type=PlayerActionType.PASS)
         self.dump_off = dump_off
         self.picked_up_teammate = None
+        self.previous_action = game.state.player_action_type
 
     def start(self):
+        if self.game.is_season3 and self.dump_off:
+            return
         self.game.use_pass_action()
         self.game.report(Outcome(OutcomeType.PASS_ACTION_STARTED, player=self.player))
         self.game.state.player_action_type = PlayerActionType.PASS
         super().start()
 
     def step(self, action):
+
+        if self.game.is_season3 and self.dump_off and action.action_type == ActionType.SELECT_NONE:
+            return True
 
         # Continue moving along path
         if action is None:
@@ -3254,7 +3799,11 @@ class PassAction(MoveAction):
             pass_distance = self.game.get_pass_distance(self.player.position, action.position)
             if not self.dump_off:
                 self.game.use_pass_action()
-                EndPlayerTurn(self.game, self.player)
+                if (self.game.is_season3 and pass_distance == PassDistance.QUICK_PASS and
+                        self.player.has_usable_skill(Skill.GIVE_AND_GO)):
+                    MoveAction(self.game, self.player)
+                else:
+                    EndPlayerTurn(self.game, self.player)
             piece = self.game.get_ball_at(self.player.position)
             attempt = Season3PassAttempt if self.game.is_season3 and type(piece) is Ball else PassAttempt
             attempt(self.game, self.player, piece, action.position, pass_distance, dump_off=self.dump_off)
@@ -3276,6 +3825,10 @@ class PassAction(MoveAction):
         return super().step(action)
 
     def available_actions(self):
+        if self.game.is_season3 and self.dump_off:
+            return [choice for choice in self.game.get_pass_actions(self.player, self.game.get_ball(), dump_off=True)
+                    if choice.action_type == ActionType.PASS] + [
+                ActionChoice(ActionType.SELECT_NONE, team=self.player.team)]
         # If MoveAction is following a path -> continue
         if self.steps is not None:
             return []
@@ -3365,7 +3918,10 @@ class FoulAction(MoveAction):
         if action.action_type == ActionType.FOUL:
             if self.player.position.distance(action.position) == 1:
                 player_to = self.game.get_player_at(action.position)
-                EndPlayerTurn(self.game, self.player)
+                if self.game.is_season3 and self.player.has_usable_skill(Skill.QUICK_FOUL):
+                    MoveAction(self.game, self.player)
+                else:
+                    EndPlayerTurn(self.game, self.player)
                 Foul(self.game, self.player, player_to)
                 return True
 
@@ -3496,7 +4052,10 @@ class BlitzAction(MoveAction):
             EndPlayerTurn(self.game, self.player)
             return True
 
-        if action.action_type == ActionType.BLOCK or action.action_type == ActionType.STAB:
+        special_skill = next((skill for skill, (_, kind) in SEASON3_SPECIAL_ACTIONS.items()
+                              if kind == action.action_type and skill != Skill.HYPNOTIC_GAZE), None)
+        if action.action_type == ActionType.BLOCK or action.action_type == ActionType.STAB or (
+                self.game.is_season3 and special_skill is not None):
             if self.player.position.distance(action.position) == 1:
                 defender = self.game.get_player_at(action.position)
                 move_needed = 1
@@ -3525,6 +4084,15 @@ class BlitzAction(MoveAction):
                     if not self.player.state.up:
                         self._stand_up()
                     return True
+                elif self.game.is_season3:
+                    EndPlayerTurn(self.game, self.player)
+                    SpecialAttack(self.game, self.player, defender, special_skill)
+                    self.player.state.has_blocked = True
+                    if gfi:
+                        GFI(self.game, self.player, self.player.position)
+                    if not self.player.state.up:
+                        self._stand_up()
+                    return True
 
         # It's a move action
         return super().step(action)
@@ -3538,6 +4106,9 @@ class BlitzAction(MoveAction):
         # Else find them for this square
         if not self.game.config.pathfinding_enabled:
             actions += self.game.get_block_actions(self.player, blitz=True, target=self.defender)
+        elif self.game.is_season3:
+            actions += [a for a in self.game.get_block_actions(self.player, blitz=True, target=self.defender)
+                        if a.action_type not in (ActionType.BLOCK, ActionType.STAB)]
         return actions
 
 
@@ -3619,20 +4190,47 @@ class PreKickoff(Procedure):
         return True
 
 
+class StripBall(Procedure):
+    """Resolve after Follow-up, but before a pushed player becomes Prone."""
+
+    def __init__(self, game, attacker, defender):
+        super().__init__(game)
+        self.attacker = attacker
+        self.defender = defender
+
+    def step(self, action):
+        if self.game.has_ball(self.defender):
+            self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.attacker, skill=Skill.STRIP_BALL))
+            self.game.report(Outcome(OutcomeType.FUMBLE, player=self.defender, opp_player=self.attacker))
+            Bounce(self.game, self.game.get_ball_at(self.defender.position))
+        return True
+
+
 class FollowUp(Procedure):
 
-    def __init__(self, game, attacker, defender, pos_to):
+    def __init__(self, game, attacker, defender, pos_to, blitz=False):
         super().__init__(game)
         self.attacker = attacker
         self.defender = defender
         self.pos_to = pos_to
+        self.blitz = blitz
+        self.taunt_checked = not (game.is_season3 and defender.has_usable_skill(Skill.TAUNT))
+        self.taunt_used = False
 
     def step(self, action):
-        if self.defender.has_skill(Skill.FEND):
+        if not self.taunt_checked and self.can_follow_up(self.attacker, self.defender):
+            self.taunt_checked = True
+            self.taunt_used = action.action_type == ActionType.USE_SKILL
+            if self.taunt_used:
+                self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.defender, skill=Skill.TAUNT))
+            return False
+        if not self.can_follow_up(self.attacker, self.defender):
+            if self.attacker.state.taken_root:
+                return True
             self.game.report(Outcome(OutcomeType.SKILL_USED, skill=Skill.FEND, player=self.defender))
             self.attacker.state.squares_moved.append(self.attacker.position)
-        elif self.attacker.has_skill(Skill.FRENZY) or (action and action.position == self.pos_to):
-            shadowers = self.game.get_adjacent_opponents(self.attacker, down=False, skill=Skill.SHADOWING)
+        elif self.must_follow_up(self.attacker) or (action and action.position == self.pos_to):
+            shadowers = [] if self.game.is_season3 else self.game.get_adjacent_opponents(self.attacker, down=False, skill=Skill.SHADOWING)
             position = self.attacker.position
             self.game.move(self.attacker, self.pos_to)
             self.attacker.state.squares_moved.append(self.pos_to)
@@ -3649,6 +4247,9 @@ class FollowUp(Procedure):
         return True
 
     def available_actions(self):
+        if not self.taunt_checked and self.can_follow_up(self.attacker, self.defender):
+            return [ActionChoice(kind, team=self.defender.team, players=[self.defender], skill=Skill.TAUNT)
+                    for kind in (ActionType.USE_SKILL, ActionType.DONT_USE_SKILL)]
         if self.must_follow_up(self.attacker) or not self.can_follow_up(self.attacker, self.defender):
             return []
         else:
@@ -3656,10 +4257,14 @@ class FollowUp(Procedure):
                                  positions=[self.attacker.position, self.pos_to])]
 
     def can_follow_up(self, attacker, defender):
-        return not defender.has_skill(Skill.FEND) and not attacker.state.taken_root
+        fend = defender.has_usable_skill(Skill.FEND)
+        if self.game.is_season3 and (attacker.has_skill(Skill.BALL_AND_CHAIN) or
+                                    (self.blitz and attacker.has_usable_skill(Skill.JUGGERNAUT))):
+            fend = False
+        return not fend and not attacker.state.taken_root and not self.game.is_chomped(attacker)
 
     def must_follow_up(self, attacker):
-        return attacker.has_skill(Skill.FRENZY)
+        return attacker.has_usable_skill(Skill.FRENZY) or self.taunt_used
 
 
 class Push(Procedure):
@@ -3682,7 +4287,9 @@ class Push(Procedure):
         self.selector = game.get_active_player()
         self.crowd = False
         self.crowd_turnover = False
-        self.strip_ball_condition = self.pusher.has_skill(Skill.STRIP_BALL) and not self.player.has_usable_skill(Skill.SURE_HANDS) and not self.knock_down and not self.chain and self.game.has_ball(self.player)
+        self.strip_ball_condition = self.pusher.has_usable_skill(Skill.STRIP_BALL) and not self.player.has_usable_skill(Skill.SURE_HANDS) and (game.is_season3 or not self.knock_down) and not self.chain and self.game.has_ball(self.player)
+        if game.is_season3 and self.player.has_usable_skill(Skill.MONSTROUS_MOUTH):
+            self.strip_ball_condition = False
         
     def step(self, action):
 
@@ -3694,6 +4301,9 @@ class Push(Procedure):
 
             # Move pushed player
             self.game.move(self.player, self.push_to)
+            if self.game.is_season3 and not self.chain and self.pusher.has_usable_skill(Skill.EYE_GOUGE):
+                self.player.state.eye_gouged = True
+                self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.pusher, skill=Skill.EYE_GOUGE))
 
             # A friendly player surfed by a chain push ends the active team's
             # turn even without the ball. Finish the entire push, injury and
@@ -3706,7 +4316,7 @@ class Push(Procedure):
                 if self.player.position.out_of_bounds:
                     ball = self.game.get_ball_at(self.player.position)
                     ThrowIn(self.game, ball, position=self.follow_to)
-                elif self.strip_ball_condition: 
+                elif self.strip_ball_condition and not self.game.is_season3:
                     self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.pusher, skill=Skill.STRIP_BALL))
                     self.game.report(Outcome(OutcomeType.FUMBLE, player=self.player, opp_player=self.pusher))
                     Bounce(self.game, self.game.get_ball_at(self.player.position) )
@@ -3718,20 +4328,27 @@ class Push(Procedure):
 
             # Knock down
             if self.knock_down or self.crowd:
-                KnockDown(self.game, self.player, in_crowd=self.crowd, armor_roll=not self.crowd)
+                KnockDown(self.game, self.player, in_crowd=self.crowd, armor_roll=not self.crowd,
+                          inflictor=self.pusher if self.game.is_season3 and not self.chain else None,
+                          block=not self.chain)
+
+            if self.game.is_season3 and self.strip_ball_condition and not self.crowd:
+                StripBall(self.game, self.pusher, self.player)
 
             # Follow up
             if not self.chain:
-                FollowUp(self.game, self.pusher, self.player, self.follow_to)
+                FollowUp(self.game, self.pusher, self.player, self.follow_to, blitz=self.blitz)
 
             return True
 
         # Taken root players cannot be pushed
-        if self.player.state.taken_root:
+        if self.player.state.taken_root or self.game.is_chomped(self.player):
             self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.player, skill=Skill.TAKE_ROOT))
             if self.knock_down:
-                KnockDown(self.game, self.player, in_crowd=False, armor_roll=True)
-            elif self.strip_ball_condition: 
+                KnockDown(self.game, self.player, in_crowd=False, armor_roll=True,
+                          inflictor=self.pusher if self.game.is_season3 and not self.chain else None,
+                          block=not self.chain)
+            elif self.strip_ball_condition and not self.game.is_season3:
                 self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.pusher, skill=Skill.STRIP_BALL))
                 self.game.report(Outcome(OutcomeType.FUMBLE, player=self.player, opp_player=self.pusher))
                 Bounce(self.game, self.game.get_ball_at(self.player.position) )
@@ -3742,8 +4359,10 @@ class Push(Procedure):
             if action.action_type == ActionType.USE_SKILL:
                 self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.player, skill=Skill.STAND_FIRM))
                 if self.knock_down:
-                    KnockDown(self.game, self.player, in_crowd=False, armor_roll=True)
-                elif self.strip_ball_condition: 
+                    KnockDown(self.game, self.player, in_crowd=False, armor_roll=True,
+                              inflictor=self.pusher if self.game.is_season3 and not self.chain else None,
+                              block=not self.chain)
+                elif self.strip_ball_condition and not self.game.is_season3:
                     self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.pusher, skill=Skill.STRIP_BALL))
                     self.game.report(Outcome(OutcomeType.FUMBLE, player=self.player, opp_player=self.pusher))
                     Bounce(self.game, self.game.get_ball_at(self.player.position) )
@@ -3753,8 +4372,8 @@ class Push(Procedure):
                 self.stand_firm_used = True
 
         # Stand firm
-        if self.player.has_skill(Skill.STAND_FIRM) and not self.stand_firm_used:
-            if self.pusher.has_skill(Skill.JUGGERNAUT) and self.blitz:
+        if self.player.has_usable_skill(Skill.STAND_FIRM) and not self.stand_firm_used:
+            if self.pusher.has_usable_skill(Skill.JUGGERNAUT) and self.blitz:
                 self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.pusher, skill=Skill.JUGGERNAUT))
             else:
                 self.waiting_stand_firm = True
@@ -3763,18 +4382,21 @@ class Push(Procedure):
         # Get possible squares
         if self.squares is None:
             # Sidestep and grab cancels out eachother - otherwise let the grabber or sidestepper select adjacent square
-            if self.player.has_skill(Skill.SIDE_STEP) and (self.chain or not self.pusher.has_skill(Skill.GRAB)):
+            if self.player.has_usable_skill(Skill.SIDE_STEP) and (self.chain or not self.pusher.has_usable_skill(Skill.GRAB)):
                 self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.player, skill=Skill.SIDE_STEP))
                 self.squares = self.game.get_adjacent_squares(self.player.position, occupied=False)
                 self.selector = self.player
                 if len(self.squares) > 0:
                     if self.player.team != self.game.state.current_team:
                         self.game.add_secondary_clock(self.player.team)
-            elif not self.chain and self.pusher.has_skill(Skill.GRAB) and not self.player.has_skill(Skill.SIDE_STEP):
+            elif not self.chain and self.pusher.has_usable_skill(Skill.GRAB) and (
+                    (self.game.is_season3 and not self.blitz) or
+                    (not self.game.is_season3 and not self.player.has_skill(Skill.SIDE_STEP))):
                 self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.player, skill=Skill.GRAB))
                 self.squares = self.game.get_adjacent_squares(self.player.position, occupied=False)
             # If no free squares
             if self.squares is None or len(self.squares) == 0:
+                self.selector = self.pusher
                 self.squares = self.game.get_push_squares(self.pusher.position, self.player.position)
             return False
 
@@ -4286,8 +4908,14 @@ class EndTurn(Procedure):
     def __init__(self, game, kickoff=False):
         super().__init__(game)
         self.kickoff = kickoff
+        self.pick_me_up_checked = False
 
     def step(self, action):
+        if self.game.is_season3 and not self.pick_me_up_checked:
+            self.pick_me_up_checked = True
+            if self.game.state.current_team is not None:
+                PickMeUp(self.game, self.game.get_opp_team(self.game.state.current_team))
+                return False
 
         # Remove all procs in the current turn - including the current turn proc.
         # In rare cases there is no Turn proc yet - e.g. during a kickoff
@@ -4337,6 +4965,24 @@ class EndTurn(Procedure):
         return True
 
 
+class PickMeUp(Procedure):
+    def __init__(self, game, team):
+        super().__init__(game)
+        self.team = team
+        helpers = [p for p in game.get_players_on_pitch(team) if p.has_usable_skill(Skill.PICK_ME_UP)]
+        self.players = [p for p in game.get_players_on_pitch(team) if not p.state.up and not p.state.stunned
+                        and any(p.position.distance(helper.position) <= 3 for helper in helpers)]
+
+    def step(self, action):
+        for player in self.players:
+            roll = DiceRoll([D6(self.game.rng)], target=5)
+            if roll.is_d6_success():
+                player.state.up = True
+            self.game.report(Outcome(OutcomeType.SKILL_USED, player=player,
+                                     skill=Skill.PICK_ME_UP, rolls=[roll]))
+        return True
+
+
 class Turn(Procedure):
 
     def __init__(self, game, team, half, turn, blitz=False, quick_snap=False):
@@ -4358,6 +5004,10 @@ class Turn(Procedure):
 
     def start(self):
         self.game.state.current_team = self.team
+        if self.game.is_season3:
+            for team in self.game.state.teams:
+                for player in team.players:
+                    player.state.shadowing_uses = 0
         self.game.add_primary_clock(self.team)
         if self.blitz:
             self.game.report(Outcome(OutcomeType.CHARGE_START if self.game.is_season3 else OutcomeType.BLITZ_START, team=self.team))
@@ -4415,10 +5065,23 @@ class Turn(Procedure):
         action.player.state.hypnotized = False
         if self.game.is_season3:
             action.player.state.distracted = False
+            action.player.state.bone_headed = False
+            action.player.state.really_stupid = False
+            if action.action_type == ActionType.START_PASS:
+                self.pass_available = False
+            if action.action_type == ActionType.START_HANDOFF:
+                self.handoff_available = False
+            if action.action_type == ActionType.START_FOUL:
+                self.foul_available = False
 
         self.game.state.active_player = action.player
             
         # Start movement action
+        if self.game.is_season3:
+            for skill, (declaration, _) in SEASON3_SPECIAL_ACTIONS.items():
+                if action.action_type == declaration:
+                    SpecialAction(self.game, action.player, skill)
+
         if action.action_type == ActionType.START_MOVE:
             MoveAction(self.game, action.player)
 
@@ -4457,10 +5120,19 @@ class Turn(Procedure):
             ReallyStupid(self.game, action.player)
         if action.player.has_skill(Skill.WILD_ANIMAL):
             WildAnimal(self.game, action.player, is_block_or_blitz=action.action_type == ActionType.START_BLOCK or action.action_type == ActionType.START_BLITZ)
-        if action.player.has_skill(Skill.TAKE_ROOT) and not action.player.state.taken_root:
+        if self.game.is_season3 and action.player.has_skill(Skill.UNCHANNELLED_FURY):
+            fury = WildAnimal(self.game, action.player, is_block_or_blitz=action.action_type in
+                              (ActionType.START_BLOCK, ActionType.START_BLITZ))
+            fury.skill = Skill.UNCHANNELLED_FURY
+        if self.game.is_season3 and action.player.has_skill(Skill.ANIMAL_SAVAGERY):
+            AnimalSavagery(self.game, action.player, is_block_or_blitz=action.action_type in
+                           (ActionType.START_BLOCK, ActionType.START_BLITZ))
+        if action.player.has_skill(Skill.TAKE_ROOT) and not action.player.state.taken_root and (
+                not self.game.is_season3 or action.player.state.up):
             TakeRoot(self.game, action.player)
         if action.player.has_skill(Skill.BLOOD_LUST):
-            BloodLust(self.game, action.player, is_block=action.action_type == ActionType.START_BLOCK)
+            BloodLust(self.game, action.player, is_block=action.action_type == ActionType.START_BLOCK,
+                      declared_action=action.action_type)
 
         return False
 
@@ -4488,10 +5160,10 @@ class Turn(Procedure):
                 if self.blitz_available and not player.state.taken_root:
                     if not self.game.is_season3 or self.game.get_blitz_targets(player):
                         blitz_players.append(player)
-                if self.pass_available:
+                if self.pass_available and not (self.game.is_season3 and player.has_skill(Skill.MY_BALL)):
                     if not player.state.taken_root or self.game.get_ball_carrier() == player:
                         pass_players.append(player)
-                if self.handoff_available:
+                if self.handoff_available and not (self.game.is_season3 and player.has_skill(Skill.MY_BALL)):
                     if not player.state.taken_root or self.game.get_ball_carrier() == player:
                         handoff_players.append(player)
                 if self.foul_available:
@@ -4504,6 +5176,12 @@ class Turn(Procedure):
                     bomb_players.append(player)
 
         actions = []
+        if self.game.is_season3 and not self.quick_snap and not self.blitz:
+            for skill, (declaration, _) in SEASON3_SPECIAL_ACTIONS.items():
+                players = [p for p in forego_players if p.has_skill(skill) and (
+                    skill == Skill.HYPNOTIC_GAZE or p.state.up)]
+                if players:
+                    actions.append(ActionChoice(declaration, team=self.team, players=players, skill=skill))
         if self.game.is_season3 and not self.quick_snap and not self.blitz and forego_players:
             actions.append(ActionChoice(ActionType.FOREGO_ACTIVATION, team=self.team, players=forego_players))
         secure_players = [p for p in move_players if self.game.can_secure_ball(p)]
@@ -4657,7 +5335,8 @@ class ReallyStupid(Negatrait):
         team_mates = self.game.get_adjacent_teammates(self.player)
         if team_mates:
             for team_mate in team_mates:
-                if not team_mate.has_skill(Skill.REALLY_STUPID):
+                if not team_mate.has_skill(Skill.REALLY_STUPID) and (
+                        not self.game.is_season3 or (team_mate.state.up and not team_mate.is_distracted())):
                     target = 2  # a non-stupid neighbour improves the odds
         return target
 
@@ -4690,6 +5369,37 @@ class WildAnimal(Negatrait):
         self.player.state.wild_animal = False
 
 
+class AnimalSavagery(WildAnimal):
+    def __init__(self, game, player, is_block_or_blitz=False):
+        super().__init__(game, player, is_block_or_blitz)
+        self.skill = Skill.ANIMAL_SAVAGERY
+
+    def trigger_failure(self):
+        self.player.state.failed_nega_trait_this_turn = True
+        victims = self.game.get_adjacent_teammates(self.player, down=False)
+        if victims:
+            SavageryVictim(self.game, self.player, victims)
+        else:
+            self.player.state.distracted = True
+            EndPlayerTurn(self.game, self.player)
+
+
+class SavageryVictim(Procedure):
+    def __init__(self, game, player, victims):
+        super().__init__(game)
+        self.player = player
+        self.victims = victims
+
+    def step(self, action):
+        victim = action.player
+        KnockDown(self.game, victim, inflictor=self.player, block=True,
+                  turnover=self.game.has_ball(victim))
+        return True
+
+    def available_actions(self):
+        return [ActionChoice(ActionType.SELECT_PLAYER, team=self.player.team, players=self.victims)]
+
+
 class TakeRoot(Negatrait):
     def __init__(self, game, player=True):
         super().__init__(game, player, ends_turn=False)
@@ -4710,12 +5420,13 @@ class TakeRoot(Negatrait):
 
 class BloodLustBlockOrMove(Procedure):
 
-    def __init__(self, game, player):
+    def __init__(self, game, player, declared_action=ActionType.START_BLOCK):
         super().__init__(game)
         self.player = player
+        self.declared_action = declared_action
 
     def step(self, action):
-        if action.action_type == ActionType.START_BLOCK:
+        if action.action_type == self.declared_action:
             return True
         # Cancel block action
         self.game.purge_stack_until(Turn, inclusive=False)
@@ -4725,26 +5436,34 @@ class BloodLustBlockOrMove(Procedure):
         return True
 
     def available_actions(self):
-        return [ActionChoice(ActionType.START_BLOCK, self.player.team, players=[self.player]),
+        return [ActionChoice(self.declared_action, self.player.team, players=[self.player]),
                 ActionChoice(ActionType.START_MOVE, self.player.team, players=[self.player])]
 
 
 class BloodLust(Negatrait):
-    def __init__(self, game, player=True, is_block=False):
+    def __init__(self, game, player=True, is_block=False, declared_action=ActionType.START_MOVE):
         super().__init__(game, player, ends_turn=False)
         self.is_block = is_block
+        self.declared_action = declared_action
         self.roll_type = RollType.BLOOD_LUST_ROLL
         self.skill = Skill.BLOOD_LUST
         self.success_outcome = OutcomeType.SUCCESSFUL_BLOOD_LUST
         self.fail_outcome = OutcomeType.FAILED_BLOOD_LUST
         
     def get_target(self):
+        if self.game.is_season3:
+            from botbowl.core.skill_rules import target_parameter
+            return target_parameter(self.player, Skill.BLOOD_LUST, 2) - int(
+                self.declared_action in (ActionType.START_BLOCK, ActionType.START_BLITZ))
         return 2
 
     def apply_fail_state(self):
         #set_trace()
         self.player.state.blood_lust = True
-        if self.is_block:
+        if self.game.is_season3:
+            if self.declared_action != ActionType.START_MOVE:
+                BloodLustBlockOrMove(self.game, self.player, self.declared_action)
+        elif self.is_block:
             BloodLustBlockOrMove(self.game, self.player)
 
     def remove_fail_state(self):
@@ -4765,6 +5484,7 @@ class Reroll(Procedure):
         self.skill = None
         self.block_actions = []
         self.block_action = None
+        self.block_skills = []
 
     def start(self):
 
@@ -4777,9 +5497,19 @@ class Reroll(Procedure):
         # Collect block dice actions if context is block
         if type(self.context) == Block:
             self.block_actions.extend(self.context.available_actions())
+            if self.game.is_season3:
+                values = [die.get_value() for die in self.context.roll.dice]
+                if (self.player.has_usable_skill(Skill.BRAWLER) and not self.context.blitz and
+                        BBDieResult.BOTH_DOWN in values):
+                    self.block_skills.append((Skill.BRAWLER, BBDieResult.BOTH_DOWN))
+                keyword = self.player.skill_parameter(Skill.HATRED, '').casefold()
+                if (self.player.has_skill(Skill.HATRED) and BBDieResult.ATTACKER_DOWN in values and
+                        keyword in [k.casefold() for k in self.context.defender.role.keywords]):
+                    self.block_skills.append((Skill.HATRED, BBDieResult.ATTACKER_DOWN))
 
         # Pro skill
-        if self.player.can_use_skill(Skill.PRO):
+        if self.player.can_use_skill(Skill.PRO) and (not self.game.is_season3 or
+                                                    self.player == self.game.get_active_player()):
             self.can_use_pro = True
 
         # Determine if team re-rolls are available
@@ -4787,7 +5517,7 @@ class Reroll(Procedure):
 
         # Check for automatic skill re-rolls
         self.skill = None
-        if type(self.context) == Dodge and self.player.can_use_skill(Skill.DODGE):
+        if (type(self.context) == Dodge or (isinstance(self.context, Season3Escape) and not self.context.jump)) and self.player.can_use_skill(Skill.DODGE):
             # Get players with tackle
             tacklers = self.game.get_adjacent_opponents(self.player, down=False, skill=Skill.TACKLE)
             if self.game.is_season3:
@@ -4822,6 +5552,12 @@ class Reroll(Procedure):
             self.secondary_clock = True
 
     def step(self, action):
+        if self.block_skills:
+            skill, value = self.block_skills.pop(0)
+            if action.action_type == ActionType.USE_SKILL:
+                self._reroll_block_die(value, skill)
+                return True
+            return False
 
         # If skill
         if self.skill is not None:
@@ -4834,6 +5570,17 @@ class Reroll(Procedure):
 
         # Did use of Pro skill succeed?
         if self.pro is not None:
+            if self.game.is_season3 and isinstance(self.context, Block) and self.pro.success:
+                action_values = {
+                    ActionType.SELECT_ATTACKER_DOWN: BBDieResult.ATTACKER_DOWN,
+                    ActionType.SELECT_BOTH_DOWN: BBDieResult.BOTH_DOWN,
+                    ActionType.SELECT_PUSH: BBDieResult.PUSH,
+                    ActionType.SELECT_DEFENDER_STUMBLES: BBDieResult.DEFENDER_STUMBLES,
+                    ActionType.SELECT_DEFENDER_DOWN: BBDieResult.DEFENDER_DOWN}
+                if action is None:
+                    return False
+                self._reroll_block_die(action_values[action.action_type], Skill.PRO)
+                return True
             self.use_reroll = self.pro.success
             # If Pro (with possible re-rolls) failed - team re-rolls are not allowed.
             return True
@@ -4843,9 +5590,13 @@ class Reroll(Procedure):
             if action.action_type == ActionType.USE_SKILL:
                 self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.player, skill=Skill.PRO))
                 self.pro = Pro(self.game, self.player, context=self)
+                if self.game.is_season3:
+                    self.game.state.rerolled_procs.add(self.context)
                 return False
             elif action.action_type == ActionType.DONT_USE_SKILL:
                 self.can_use_pro = False
+                if self.game.is_season3 and self.can_use_team_reroll:
+                    return False
 
         # Did Loner roll succeed?
         if self.loner is not None:
@@ -4863,7 +5614,7 @@ class Reroll(Procedure):
         if self.can_use_team_reroll:
             if action.action_type == ActionType.USE_REROLL:
                 self.use_reroll = True
-                self.player.team.state.use_reroll()
+                self.game.use_team_reroll(self.player.team)
                 self.game.report(Outcome(OutcomeType.REROLL_USED, team=self.player.team))
                 if self.player.has_skill(Skill.LONER):
                     self.loner = Loner(self.game, self.player, context=self)
@@ -4875,6 +5626,15 @@ class Reroll(Procedure):
         # If neither Pro or team re-rolls can be used
         self.use_reroll = False
         return True
+
+    def _reroll_block_die(self, value, skill):
+        index = next(i for i, die in enumerate(self.context.roll.dice) if die.get_value() == value)
+        self.context.roll.dice[index] = BBDie(self.game.rng)
+        self.game.state.rerolled_procs.add(self.context)
+        self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.player, skill=skill,
+                                 rolls=[self.context.roll]))
+        self.use_reroll = False
+        self.block_skills.clear()
 
     def end(self):
         # Stop clock ff decision is opponent's
@@ -4891,7 +5651,33 @@ class Reroll(Procedure):
         If human, show all actions at once, but hide uneccessary don't use/reroll actions.
         """
         actions = []
+        if self.block_skills:
+            return [ActionChoice(kind, team=self.player.team, skill=self.block_skills[0][0])
+                    for kind in (ActionType.USE_SKILL, ActionType.DONT_USE_SKILL)]
+        if self.pro is not None and self.game.is_season3:
+            if self.pro.success and isinstance(self.context, Block):
+                values = {die.get_value() for die in self.context.roll.dice}
+                return [ActionChoice(kind, team=self.player.team, skill=Skill.PRO)
+                        for kind, value in ((ActionType.SELECT_ATTACKER_DOWN, BBDieResult.ATTACKER_DOWN),
+                                            (ActionType.SELECT_BOTH_DOWN, BBDieResult.BOTH_DOWN),
+                                            (ActionType.SELECT_PUSH, BBDieResult.PUSH),
+                                            (ActionType.SELECT_DEFENDER_STUMBLES, BBDieResult.DEFENDER_STUMBLES),
+                                            (ActionType.SELECT_DEFENDER_DOWN, BBDieResult.DEFENDER_DOWN))
+                        if value in values]
+            return []
         if self.skill is not None or self.loner is not None:
+            return actions
+        if self.game.is_season3:
+            if self.can_use_pro:
+                actions.extend([ActionChoice(kind, team=self.player.team, skill=Skill.PRO)
+                                for kind in (ActionType.USE_SKILL, ActionType.DONT_USE_SKILL)])
+            if self.can_use_team_reroll:
+                actions.append(ActionChoice(ActionType.USE_REROLL, team=self.player.team))
+                if not (isinstance(self.context, Block) and self.context.favor == self.player.team
+                        and self.game.get_team_agent(self.player.team).human):
+                    actions.append(ActionChoice(ActionType.DONT_USE_REROLL, team=self.player.team))
+            if actions and isinstance(self.context, Block) and self.context.favor == self.player.team:
+                actions.extend(self.block_actions)
             return actions
         if not self.game.get_team_agent(self.player.team).human:  # Actor is non-human agent, action accuired from agent.act(game)
             if self.can_use_pro:
@@ -4949,7 +5735,7 @@ class Pro(Procedure):
         if self.roll is None:
             # Roll
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.PRO)
-            self.roll.target = 4
+            self.roll.target = 3 if self.game.is_season3 else 4
 
             if self.roll.is_d6_success():
                 # Success
@@ -4958,6 +5744,8 @@ class Pro(Procedure):
                 return True
             else:
                 self.game.report(Outcome(OutcomeType.FAILED_PRO, player=self.player, rolls=[self.roll]))
+                if self.game.is_season3:
+                    return True
                 # Team re-rolls can be used to re-roll a failed Pro roll
                 self.reroll = Reroll(self.game, self.player, context=self.context)
                 return False
@@ -4985,7 +5773,11 @@ class Loner(Procedure):
         if self.roll is None:
             # Roll
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.LONER_ROLL)
-            self.roll.target = 4
+            if self.game.is_season3:
+                from botbowl.core.skill_rules import target_parameter
+                self.roll.target = target_parameter(self.player, Skill.LONER, 4)
+            else:
+                self.roll.target = 4
 
             if self.roll.is_d6_success():
                 # Success
@@ -5021,15 +5813,18 @@ class EatThrall(Procedure):
         self.victim_pos = self.game.get_adjacent_blood_lust_victims(self.player)
         
     def step(self, action): 
-        if len(self.victim_pos)==0: 
+        if len(self.victim_pos)==0 or (action is not None and action.action_type == ActionType.SELECT_NONE):
             Turnover(self.game)
             
             ball = self.game.get_ball_at(self.player.position)
             if ball is not None: 
                 Bounce(self.game, ball)
             
-            self.game.pitch_to_reserves(self.player)
-            self.game.report(Outcome(OutcomeType.EJECTED_BY_BLOOD_LUST, player=self.player))
+            if self.game.is_season3:
+                self.player.state.distracted = True
+            else:
+                self.game.pitch_to_reserves(self.player)
+                self.game.report(Outcome(OutcomeType.EJECTED_BY_BLOOD_LUST, player=self.player))
             
             self.failed = True 
             
@@ -5037,7 +5832,9 @@ class EatThrall(Procedure):
             self.victim = self.game.get_player_at(action.position)  
             #set_trace() 
             self.game.report(Outcome(OutcomeType.EATEN_DURING_BLOOD_LUST, player=self.victim, opp_player=self.player))
-            KnockDown(self.game, self.victim, armor_roll=False, injury_roll=True)
+            KnockDown(self.game, self.victim, armor_roll=False, injury_roll=True,
+                      blood_lust=self.game.is_season3,
+                      turnover=self.game.is_season3 and self.game.has_ball(self.victim))
             self.failed = False 
             
         return True 
@@ -5047,7 +5844,10 @@ class EatThrall(Procedure):
         
     def available_actions(self): 
         if len(self.victim_pos) > 0:
-            return [ActionChoice(ActionType.SELECT_PLAYER, positions=self.victim_pos, team=self.player.team)] 
+            actions = [ActionChoice(ActionType.SELECT_PLAYER, positions=self.victim_pos, team=self.player.team)]
+            if self.game.is_season3:
+                actions.append(ActionChoice(ActionType.SELECT_NONE, team=self.player.team))
+            return actions
         else: 
             return [] 
 
@@ -5067,8 +5867,8 @@ class HypnoticGaze(Procedure):
         if self.roll is None: 
             #agility roll with tz modifiers except target_player
             self.roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.AGILITY_ROLL)
-            self.roll.modifiers = self.game.get_hypno_modifier(self.player)
-            self.roll.target = self.player.get_ag_target()
+            self.roll.modifiers = 0 if self.game.is_season3 else self.game.get_hypno_modifier(self.player)
+            self.roll.target = 3 if self.game.is_season3 else self.player.get_ag_target()
             
             if self.roll.is_d6_success(): 
                 self.game.report(Outcome(OutcomeType.SUCCESSFUL_HYPNOTIC_GAZE, player=self.player, rolls=[self.roll]))
@@ -5128,9 +5928,13 @@ class EndDrive(Procedure):
                         self.game.pitch_to_reserves(player)
                         player.state.heated = True
                         self.game.report(Outcome(OutcomeType.PLAYER_HEATED, player=player, rolls=[roll]))
-            # No selected Human has Secret Weapon or another end-of-drive trait.
             for team in reversed(self.game.state.teams):
                 PreKickoff(self.game, team)
+            for team in reversed(self.game.state.teams):
+                for player in team.players:
+                    if player.state.played_drive and player.has_skill(Skill.SECRET_WEAPON) and not player.state.ejected:
+                        Ejection(self.game, player)
+                    player.state.played_drive = False
             return False
         for team in self.game.state.teams:
             team.state.rerolls -= team.state.drive_rerolls

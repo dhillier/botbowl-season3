@@ -5,6 +5,7 @@ import numpy as np
 
 @patch("botbowl.core.game.Game")
 def test_armour_with_mighty_blow(mock_game):
+    mock_game.is_season3 = False  # Explicitly exercise the legacy rules.
     # patch the mock game proc stack
     stack = Stack()
     mock_game.state.stack = stack    
@@ -29,6 +30,7 @@ def test_armour_with_mighty_blow(mock_game):
 
 @patch("botbowl.core.game.Game")
 def test_armour_broken_with_mighty_blow_unused(mock_game):
+    mock_game.is_season3 = False  # Explicitly exercise the legacy rules.
     # patch the mock game proc stack
     stack = Stack()
     mock_game.state.stack = stack    
@@ -53,6 +55,7 @@ def test_armour_broken_with_mighty_blow_unused(mock_game):
 
 @patch("botbowl.core.game.Game")
 def test_armour_no_break(mock_game):
+    mock_game.is_season3 = False  # Explicitly exercise the legacy rules.
     # patch the mock game proc stack
     stack = Stack()
     mock_game.state.stack = stack    

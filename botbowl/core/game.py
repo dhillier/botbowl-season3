@@ -467,6 +467,11 @@ class Game:
             print("Players on Field={}".format(len(self.get_players_on_pitch())))
 
         proc.done = proc.step(action)
+        if self.is_season3:
+            for player in list(self.state.chomped_players):
+                if not self.is_chomped(player):
+                    player.state.chomped_by = None
+                    self.state.chomped_players.remove(player)
 
         if self.config.debug_mode:
             print("Done={}".format(proc.done))
@@ -872,12 +877,24 @@ class Game:
                 return proc
         return None
 
+    def leader_available(self, team: Team) -> bool:
+        return (self.is_season3 and team.state.leader_reroll and
+                any(p.has_skill(Skill.LEADER) for p in self.get_players_on_pitch(team)))
+
+    def use_team_reroll(self, team: Team) -> None:
+        if self.leader_available(team):
+            team.state.leader_reroll = False
+            team.state.reroll_used = True
+        else:
+            team.state.use_reroll()
+
     def can_use_reroll(self, team: Team) -> bool:
         """
         :param team:
         :return: True if the team can use reroll right now (i.e. this turn).
         """
-        if (self.is_season3 or not team.state.reroll_used) and team.state.rerolls > 0 and self.state.current_team == team:
+        if (self.is_season3 or not team.state.reroll_used) and (
+                team.state.rerolls > 0 or self.leader_available(team)) and self.state.current_team == team:
             current_turn = self.current_turn()
             if current_turn is not None and isinstance(current_turn, Turn):
                 return not current_turn.quick_snap
@@ -942,7 +959,8 @@ class Game:
         Entering a marked square is free; leaving it requires a Dodge.
         """
         if (player.position is None or not self.has_ball(player) or player.state.stunned or
-                player.state.in_air or player.state.taken_root or player.has_skill(Skill.NO_HANDS)):
+                player.state.in_air or player.state.taken_root or player.has_skill(Skill.NO_HANDS) or
+                player.has_skill(Skill.NO_BALL)):
             return False
         if any(player.has_skill(s) for s in (Skill.BONE_HEAD, Skill.REALLY_STUPID,
                 Skill.WILD_ANIMAL, Skill.TAKE_ROOT, Skill.BLOOD_LUST)):
@@ -1043,6 +1061,7 @@ class Game:
         if (not self.is_secure_ball_available() or player.team != self.state.current_team or
                 player.position is None or player.state.used or player.state.stunned or
                 player.state.in_air or player.state.taken_root or player.has_skill(Skill.NO_HANDS) or
+                player.has_skill(Skill.NO_BALL) or player.has_skill(Skill.UNSTEADY) or
                 any(k.casefold() == 'big guy' for k in player.role.keywords)):
             return False
         ball = self.get_ball()
@@ -1225,7 +1244,12 @@ class Game:
         Moves player from the pitch to the dungeon and ejects the player from the game.
         :param player:
         """
-        self.remove(player)
+        if player.position is not None:
+            self.remove(player)
+        if self.is_season3:
+            for box in (self.get_reserves(player.team), self.get_knocked_out(player.team), self.get_casualties(player.team)):
+                if player in box:
+                    box.remove(player)
         self.get_dungeon(player.team).append(player)
         player.state.ejected = True
         player.state.up = True
@@ -1367,21 +1391,25 @@ class Game:
         :return: the modifier to be added to the pass roll.
         """
         modifiers = 1 if accurate or handoff else 0
-        if catcher.has_skill(Skill.DIVING_CATCH) and accurate:
+        if catcher.has_usable_skill(Skill.DIVING_CATCH) and accurate:
             modifiers += 1
         modifiers = -2 if interception else modifiers
         if self.is_season3:
             modifiers = 0 if accurate or handoff or inaccurate else -1
             if interception:
                 modifiers = -2 if inaccurate else -3
-        if interception and catcher.has_skill(Skill.VERY_LONG_LEGS):
-            modifiers += 1
+            elif accurate and catcher.has_usable_skill(Skill.DIVING_CATCH):
+                modifiers += 1
+        if interception and catcher.has_usable_skill(Skill.VERY_LONG_LEGS):
+            modifiers += 2 if self.is_season3 else 1
+        if self.is_season3 and interception and catcher.has_skill(Skill.STUNTY):
+            modifiers -= 1
         # opposing tackle zones
-        if not catcher.has_skill(Skill.NERVES_OF_STEEL):
+        if not catcher.has_usable_skill(Skill.NERVES_OF_STEEL) or (self.is_season3 and interception):
             modifiers -= self.num_tackle_zones_in(catcher)
         if self.state.weather == WeatherType.POURING_RAIN:
             modifiers -= 1
-        if catcher.has_skill(Skill.EXTRA_ARMS):
+        if catcher.has_usable_skill(Skill.EXTRA_ARMS):
             modifiers += 1
         # Disturbing presence
         for opp_player in self.get_opp_team(catcher.team).players:
@@ -1397,29 +1425,34 @@ class Game:
         :return: the modifier to be added to the pass roll.
         """
         modifiers = Rules.pass_modifiers[pass_distance]
-        if self.is_season3 and pass_distance != PassDistance.HAIL_MARY:
-            modifiers -= 1
+        if self.is_season3:
+            modifiers = -3 if pass_distance == PassDistance.HAIL_MARY else modifiers - 1
         # Opposing tackle zones
         tackle_zones = self.num_tackle_zones_in(passer)
-        if not passer.has_skill(Skill.NERVES_OF_STEEL):
+        if not passer.has_usable_skill(Skill.NERVES_OF_STEEL):
             modifiers -= tackle_zones
 
         # Weather
         if self.state.weather == WeatherType.VERY_SUNNY:
             modifiers -= 1
 
-        if passer.has_skill(Skill.ACCURATE):
+        if passer.has_usable_skill(Skill.ACCURATE) and (not self.is_season3 or (
+                not ttm and pass_distance in (PassDistance.QUICK_PASS, PassDistance.SHORT_PASS))):
+            modifiers += 1
+
+        if self.is_season3 and not ttm and passer.has_usable_skill(Skill.CANNONEER) and pass_distance in (
+                PassDistance.LONG_PASS, PassDistance.LONG_BOMB, PassDistance.HAIL_MARY):
             modifiers += 1
 
         if ttm:
             modifiers -= 1
 
-        if passer.has_skill(Skill.STRONG_ARM):
-            if pass_distance == PassDistance.SHORT_PASS or pass_distance == PassDistance.LONG_PASS or \
-                    pass_distance == PassDistance.LONG_BOMB:
+        if passer.has_usable_skill(Skill.STRONG_ARM):
+            if (self.is_season3 and ttm) or (not self.is_season3 and pass_distance in (
+                    PassDistance.SHORT_PASS, PassDistance.LONG_PASS, PassDistance.LONG_BOMB)):
                 modifiers += 1
 
-        if passer.has_skill(Skill.STUNTY):
+        if not self.is_season3 and passer.has_skill(Skill.STUNTY):
             modifiers -= 1
 
         # Disturbing presence
@@ -1436,7 +1469,8 @@ class Game:
         """
         return 1 if player.has_skill(Skill.VERY_LONG_LEGS) else 0
 
-    def get_dodge_modifiers(self, player: Player, position: Square, include_diving_tackle: bool = False) -> int:
+    def get_dodge_modifiers(self, player: Player, position: Square, include_diving_tackle: bool = False,
+                            from_position: Optional[Square] = None, assume_standing: bool = False) -> int:
         """
         :param player:
         :param position: The position the player is dodging to
@@ -1445,31 +1479,39 @@ class Game:
         """
         modifiers = 0 if self.is_season3 else 1
         tackle_zones_to = self.num_tackle_zones_at(player, position)
+        if self.is_season3:
+            tackle_zones_to -= sum(p.has_tackle_zone() and p.has_skill(Skill.TITCHY)
+                                  for p in self.get_adjacent_players(position, team=self.get_opp_team(player.team)))
 
         ignore_opp_mods = False
         if player.has_skill(Skill.STUNTY):
-            modifiers = 1
+            modifiers = 0 if self.is_season3 else 1
             ignore_opp_mods = True
         if player.has_skill(Skill.TITCHY):
             modifiers += 1
-            ignore_opp_mods = True
-        if player.has_skill(Skill.TWO_HEADS):
+            if not self.is_season3:
+                ignore_opp_mods = True
+        if player.has_usable_skill(Skill.TWO_HEADS, assume_standing=assume_standing):
             modifiers += 1
 
-        prehensile_tailers = self.get_adjacent_opponents(player, skill=Skill.PREHENSILE_TAIL)
-        modifiers -= len(prehensile_tailers)  # subtract 1 for each prehensile tail detractor
+        origin = player.position if from_position is None else from_position
+        opponents = self.get_adjacent_players(origin, team=self.get_opp_team(player.team))
+        prehensile_tailers = [p for p in opponents if p.has_skill(Skill.PREHENSILE_TAIL)]
+        if self.is_season3:
+            prehensile_tailers = [p for p in prehensile_tailers if p.has_tackle_zone() and p.has_usable_skill(Skill.PREHENSILE_TAIL)]
+        modifiers -= min(1, len(prehensile_tailers)) if self.is_season3 else len(prehensile_tailers)
 
         if not ignore_opp_mods:
             modifiers -= tackle_zones_to
 
         if include_diving_tackle:
-            diving_tacklers = self.get_adjacent_opponents(player, skill=Skill.DIVING_TACKLE)
-            if len(diving_tacklers) > 0:
+            diving_tacklers = [p for p in opponents if p.has_skill(Skill.DIVING_TACKLE)]
+            if any(p.has_usable_skill(Skill.DIVING_TACKLE) and p.has_tackle_zone() for p in diving_tacklers):
                 modifiers -= 2
 
         return modifiers
 
-    def get_pickup_modifiers(self, player: Player, position: Square) -> int:
+    def get_pickup_modifiers(self, player: Player, position: Square, assume_standing: bool = False) -> int:
         """
         :param player:
         :param position: the square of the ball.
@@ -1478,16 +1520,16 @@ class Game:
         modifiers = 0 if self.is_season3 else 1
         tackle_zones = self.num_tackle_zones_at(player, position)
 
-        if not player.has_skill(Skill.BIG_HAND):
+        if not player.has_usable_skill(Skill.BIG_HAND, assume_standing=assume_standing):
             modifiers -= tackle_zones
 
         # Weather
         if self.state.weather == WeatherType.POURING_RAIN:
-            if not player.has_skill(Skill.BIG_HAND):
+            if not player.has_usable_skill(Skill.BIG_HAND, assume_standing=assume_standing):
                 modifiers -= 1
 
         # Extra arms
-        if player.has_skill(Skill.EXTRA_ARMS):
+        if player.has_usable_skill(Skill.EXTRA_ARMS, assume_standing=assume_standing):
             modifiers += 1
 
         return modifiers
@@ -1495,6 +1537,10 @@ class Game:
     def get_secure_ball_modifiers(self) -> int:
         """A base 2+ pickup, not an AG test; May 2026 FAQ applies rain."""
         return -1 if self.state.weather == WeatherType.POURING_RAIN else 0
+
+    def get_rush_target(self, player: Player) -> int:
+        target = 3 if self.state.weather == WeatherType.BLIZZARD else 2
+        return target + int(self.is_season3 and player.has_skill(Skill.DRUNKARD))
 
     def num_tackle_zones_in(self, player: Player) -> int:
         """
@@ -1976,6 +2022,9 @@ class Game:
         :param foul: Indicates whether it is a foul. The Guard skill is ignored if fould=True.
         :return: a list of assisting players in a block between player and opp_player.
         """
+        if self.is_season3:
+            return self._season3_assists(player, opp_player, foul=foul,
+                                         offensive=player.team == self.state.current_team)
         assists = []
         for yy in range(-1, 2, 1):
             for xx in range(-1, 2, 1):
@@ -2013,6 +2062,8 @@ class Game:
         :param foul: Indicates whether it is a foul. The Guard skill is ignored if fould=True.
         :return: a list of assisting players in a block between player and opp_player.
         """
+        if self.is_season3:
+            return self.get_assisting_players(player, opp_player, foul=foul)
         assists = []
         for yy in range(-1, 2, 1):
             for xx in range(-1, 2, 1):
@@ -2179,6 +2230,8 @@ class Game:
         :param allow_team_reroll:
         :return: the probability of a successful catch for player.
         """
+        if self.is_season3 and player.has_skill(Skill.NO_BALL):
+            return 0.0
         ag_roll = player.get_ag_target() - self.get_pickup_modifiers(player, position=position)
         ag_roll = max(2, min(6, ag_roll))
         successful_outcomes = 6 - (ag_roll - 1)
@@ -2266,6 +2319,28 @@ class Game:
         elif st_for < st_against:
             return -2
 
+    def _season3_assists(self, player, opponent, foul=False, offensive=True,
+                        moved_player=None, moved_to=None):
+        """Assists with the same marking rules for execution and blitz previews."""
+        def square(p):
+            return moved_to if p == moved_player else p.position
+
+        assists = []
+        for assister in self.get_players_on_pitch(player.team):
+            if assister == player or not assister.can_assist():
+                continue
+            if square(assister).distance(square(opponent)) != 1:
+                continue
+            markers = [p for p in self.get_players_on_pitch(opponent.team)
+                       if p.has_tackle_zone() and square(p).distance(square(assister)) == 1]
+            defensive = (assister.team == self.state.current_team and
+                         any(p.has_usable_skill(Skill.DEFENSIVE) for p in markers))
+            unmarked_assist = (not foul and assister.has_usable_skill(Skill.GUARD)) or (
+                foul and offensive and assister.has_usable_skill(Skill.PUT_THE_BOOT_IN))
+            if (unmarked_assist and not defensive) or not any(p != opponent for p in markers):
+                assists.append(assister)
+        return assists
+
     def num_assists_at(self, attacker: Player, defender: Player, position: Square, foul: bool = False) \
             -> Tuple[int, int]:
         '''
@@ -2273,6 +2348,10 @@ class Game:
         calculating assists after moving in a Blitz action.
         :return: int - Net # of assists
         '''
+
+        if self.is_season3:
+            return (len(self._season3_assists(attacker, defender, foul, True, attacker, position)),
+                    len(self._season3_assists(defender, attacker, foul, False, attacker, position)))
 
         # Note that because blitzing/fouling player may have moved,
         # calculating assists for is slightly different to against.
@@ -2554,6 +2633,9 @@ class Game:
         :return: return positions of adjecent players that can be bitten
                  because of a failed blood lust roll. 
         """
+        if self.is_season3:
+            return [p.position for p in self.get_adjacent_teammates(player)
+                    if p.role.name == 'Thrall Lineman']
         return [p.position for p in self.get_adjacent_teammates(player) if not p.has_skill(Skill.BLOOD_LUST)]
 
     def get_hypno_targets(self, player: Player) -> List[Square]:
@@ -2562,9 +2644,11 @@ class Game:
         :return: available targets for given player to hypnotize if player has Hypnotic Gaze skill 
         """
 
-        if not player.has_skill(Skill.HYPNOTIC_GAZE):
+        if not player.has_usable_skill(Skill.HYPNOTIC_GAZE):
             return []
 
+        if self.is_season3:
+            return [o.position for o in self.get_adjacent_opponents(player, down=False)]
         return [o.position for o in self.get_adjacent_opponents(player, down=False) if o.has_tackle_zone()]
 
     def get_hypno_modifier(self, player: Player) -> int:
@@ -2612,7 +2696,15 @@ class Game:
             return [ActionChoice(ActionType.STAND_UP, team=player.team, rolls=rolls)]
         return []
 
+    def is_chomped(self, player: Player) -> bool:
+        if not self.is_season3 or player.state.chomped_by is None or player.position is None:
+            return False
+        return any(p.player_id == player.state.chomped_by and p.has_tackle_zone()
+                   for p in self.get_adjacent_opponents(player))
+
     def get_adjacent_move_actions(self, player: Player, secure_ball: bool = False) -> List[ActionChoice]:
+        if self.is_chomped(player):
+            return []
         if self.is_season3 and not player.state.up:
             return []  # Stand up before moving; pathfinding can include that step.
         quick_snap = self.is_quick_snap()
@@ -2622,7 +2714,7 @@ class Game:
         move_needed = 1 if not player.state.up else 1
         gfi = player.state.moves + move_needed > player.get_ma()
         sprints = 3 if player.has_skill(Skill.SPRINT) else 2
-        gfi_roll = 3 if self.state.weather == WeatherType.BLIZZARD else 2
+        gfi_roll = self.get_rush_target(player)
         if (not quick_snap
             and not player.state.taken_root
             and player.state.moves + move_needed <= player.get_ma() + sprints) \
@@ -2652,6 +2744,9 @@ class Game:
         return actions
 
     def get_leap_actions(self, player: Player) -> List[ActionChoice]:
+        if self.is_season3:
+            # Leap and Pogo use Jump's timing and two-square movement cost.
+            return []
         actions = []
         if player.can_use_skill(Skill.LEAP) and not self.is_quick_snap():
             sprints = 3 if player.has_skill(Skill.SPRINT) else 2
@@ -2681,10 +2776,15 @@ class Game:
         return actions
 
     def get_jump_positions(self, player: Player, from_position: Optional[Square] = None) -> List[Square]:
+        if self.is_chomped(player):
+            return []
         """Geometry shared by action generation, reachability and pathfinding."""
         if not self.is_season3:
             return []
         origin = player.position if from_position is None else from_position
+        if player.has_usable_skill(Skill.LEAP, assume_standing=True) or player.has_usable_skill(Skill.POGO, assume_standing=True):
+            return sorted((s for s in self.get_adjacent_squares(origin, distance=2, occupied=False)
+                           if origin.distance(s) == 2), key=lambda s: (s.y, s.x))
         destinations = set()
         for downed in self.get_adjacent_players(origin):
             if downed == player:
@@ -2697,7 +2797,17 @@ class Game:
         return sorted(destinations, key=lambda s: (s.y, s.x))
 
     def get_jump_modifiers(self, player: Player, origin: Square, destination: Square) -> int:
-        return -max(self.num_tackle_zones_at(player, origin), self.num_tackle_zones_at(player, destination))
+        modifiers = -max(self.num_tackle_zones_at(player, origin), self.num_tackle_zones_at(player, destination))
+        if any(p.has_tackle_zone() and p.has_usable_skill(Skill.PREHENSILE_TAIL)
+               for p in self.get_adjacent_players(origin, team=self.get_opp_team(player.team))):
+            modifiers -= 1
+        if player.has_usable_skill(Skill.POGO, assume_standing=True):
+            modifiers = 0
+        elif modifiers < -1 and player.has_usable_skill(Skill.LEAP, assume_standing=True):
+            modifiers += 1
+        if player.has_usable_skill(Skill.VERY_LONG_LEGS, assume_standing=True):
+            modifiers += 1
+        return modifiers
 
     def get_jump_actions(self, player: Player) -> List[ActionChoice]:
         if (not self.is_season3 or self.is_quick_snap() or not player.state.up or
@@ -2705,7 +2815,7 @@ class Game:
             return []
         positions = self.get_jump_positions(player)
         rushes = max(0, 2 - player.num_moves_left())
-        rush_target = 3 if self.state.weather == WeatherType.BLIZZARD else 2
+        rush_target = self.get_rush_target(player)
         rolls = []
         for position in positions:
             target = min(6, max(2, player.get_ag_target() - self.get_jump_modifiers(player, player.position, position)))
@@ -2762,7 +2872,7 @@ class Game:
                 else:
                     return []
             else:
-                jump_up_rolls.append(min(6, player.get_ag_target() + 2))
+                jump_up_rolls.append(max(2, min(6, player.get_ag_target() - 1)) if self.is_season3 else min(6, player.get_ag_target() + 2))
 
         actions = []
 
@@ -2786,7 +2896,7 @@ class Game:
                                        blitz=blitz,
                                        dauntless_success=False)
             block_dice.append(dice)
-            if player.has_skill(Skill.STAB):
+            if player.has_usable_skill(Skill.STAB) and (not self.is_season3 or blitz):
                 roll = player_to.get_armor_target()
                 if player.has_skill(Skill.STAKES) and player_to.team.race in ['Khemri', 'Necromantic',
                                                                               'Undead', 'Vampire']:
@@ -2798,9 +2908,13 @@ class Game:
                                         positions=block_positions,
                                         block_dice=block_dice,
                                         rolls=rolls))
-            if player.has_skill(Skill.STAB):
+            if player.has_usable_skill(Skill.STAB) and (not self.is_season3 or blitz):
                 rolls = [roll + [stab_rolls[i]] for i, roll in enumerate(rolls)]
                 actions.append(ActionChoice(ActionType.STAB, team=player.team, positions=block_positions, rolls=rolls))
+            if self.is_season3 and blitz:
+                for skill, (_, kind) in SEASON3_SPECIAL_ACTIONS.items():
+                    if skill not in (Skill.STAB, Skill.HYPNOTIC_GAZE) and player.has_usable_skill(skill):
+                        actions.append(ActionChoice(kind, team=player.team, positions=block_positions, skill=skill))
 
         return actions
 
