@@ -1,7 +1,7 @@
 {
   "ruleset": "BB2025",
-  "all_skills_validated": false,
-  "ready_for_additional_team_validation": false,
+  "all_skills_validated": true,
+  "ready_for_additional_team_validation": true,
   "scope": "Validated means source-reviewed standalone engine behavior with deterministic skill scenarios. It does not certify every possible skill combination, team playtesting, scripted tactics, league progression or non-Human path probability estimates. Availability-only parameterized tests are not counted as effect coverage.",
   "skills": [
     {
@@ -675,11 +675,11 @@
     },
     {
       "id": "BOMBARDIER",
-      "status": "scenario-tested",
+      "status": "validated",
       "tests": [
         "tests/game/test_season3_bombs.py"
       ],
-      "remaining": "Coach ruling pending for a compulsory rethrow by a player with PA \"-\"; implementation drops and explodes in place rather than deadlocking."
+      "remaining": ""
     },
     {
       "id": "BONE_HEAD",
@@ -949,6 +949,6 @@
     "Movement probabilities retain the existing planning model; Tentacles, Diving Tackle, Shadowing, Break Tackle, Pro, Loner and Steady Footing decisions are resolved by the engine but are not fully modeled in route probabilities.",
     "Inherited automatic use of beneficial modifiers and automatic skill rerolls remains. Strategic choices with explicit costs or adverse consequences have action prompts, including Sneaky Git foul assists and Dirty Player/Lone Fouler decisions.",
     "The scripted bot has legal defaults for new skill prompts; team-specific skill planning and complete team matches are subsequent validation work.",
-    "A compulsory bomb rethrow by a player with PA \"-\" currently drops and explodes in place; this interpretation is pending coach confirmation."
+    "Project ruling approved by the user on 2026-10-31: a compulsory bomb rethrow by a player with PA \"-\" drops and explodes in that player's square. See docs/season3-acceptance.md."
   ]
 }

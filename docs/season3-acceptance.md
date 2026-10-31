@@ -34,6 +34,20 @@ enumerate all natural results across the four ranges, sunny weather and marking,
 and check that both Pass and team re-rolls resolve before flight/interception.
 The existing no-second-re-roll cases remain part of acceptance.
 
+## Bomb rethrows with no Passing Ability: user ruling accepted
+
+For the all-team skill expansion, the user approved **drop and explode in place**
+on 31 October 2026 when a player with PA "-" catches a bomb and must rethrow it.
+The bomb explodes in that player's square without a passing roll or a bounce;
+the normal explosion effects then resolve. This is an approved project
+interpretation, not an official erratum.
+
+`tests/game/test_season3_bombs.py` covers the Woodland Fox case, including the
+explosion position, injury resolution and preservation of the catcher's unused
+activation. Separate scenarios cover ordinary rethrows, failed catches,
+interceptions and turnovers. This closes the Bombardier skill audit entry;
+individual teams still require incremental match validation.
+
 ## Interception: pinned digital geometry
 
 The supplied game chapter, PDF pages 44–47, requires ruler overlap with an eligible

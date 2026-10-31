@@ -39,7 +39,7 @@ def test_bomb_catch_is_mandatory_and_rethrow_preserves_activation():
     assert not game.has_report_of_type(OutcomeType.TURNOVER)
 
 
-def test_catcher_without_passing_ability_drops_bomb_instead_of_deadlocking():
+def test_catcher_without_passing_ability_drops_and_explodes_bomb_in_place():
     game, (thrower, catcher) = season3_turn([(5, 5)], [(8, 5)], ball=(20, 12))
     thrower.extra_skills = [Skill.BOMBARDIER, Skill.CLOUD_BURSTER]
     catcher.role = game.ruleset.get_role('Woodland Fox', 'Gnome')
@@ -48,6 +48,8 @@ def test_catcher_without_passing_ability_drops_bomb_instead_of_deadlocking():
         throw_bomb(game, thrower, catcher.position)
     assert game.get_bomb() is None
     assert not catcher.state.up and not catcher.state.used
+    exploded = [r for r in game.state.reports if r.outcome_type == OutcomeType.BOMB_EXPLODED]
+    assert len(exploded) == 1 and exploded[0].position == Square(8, 5)
     assert not game.has_report_of_type(OutcomeType.TURNOVER)
 
 
