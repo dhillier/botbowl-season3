@@ -95,8 +95,16 @@ namespace node_ns {
         rolls.push_back(target);
         _apply_roll((7.0-target)/6.0, SURE_HANDS, TRR);
     }
-    void Node::apply_handoff(int target){
+    void Node::apply_handoff(int target, bool catch_reroll){
         handoff_roll = target;
+        // Movement-only prob remains unchanged. Each successful movement branch
+        // has its own remaining team budget for the receiver's catch.
+        double p = (7.0 - target) / 6.0;
+        handoff_prob = 0.0;
+        for (auto const& state : rr_states) {
+            bool reroll = catch_reroll || state.first[TRR] > 0;
+            handoff_prob += state.second * (reroll ? p + (1.0 - p) * p : p);
+        }
         can_handoff = false;
     }
     void Node::apply_foul(int target){

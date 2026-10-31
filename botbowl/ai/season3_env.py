@@ -21,7 +21,7 @@ from botbowl.ai.season3_actions import (
     ACTION_VERSION, HEIGHT, ROSTER_SIZE, WIDTH, Season3ActionCodec, action_manifest)
 
 
-OBSERVATION_VERSION = 's3-observations-v1'
+OBSERVATION_VERSION = 's3-observations-v2'
 RULES_VERSION = 'BB2025-fixed-human-2026-10-28-r1'
 SKILLS = (Skill.BLOCK, Skill.DODGE, Skill.TACKLE, Skill.CATCH, Skill.PASS, Skill.SURE_HANDS)
 ROLES = ('Lineman', 'Thrower', 'Catcher', 'Blitzer')
@@ -104,6 +104,7 @@ class Season3Adapter:
             'spatial_features': list(SPATIAL_FEATURES), 'global_features': list(GLOBAL_FEATURES),
             'roll_features': list(ROLL_FEATURES), 'max_public_rolls': MAX_PUBLIC_ROLLS,
             'action_features': ['test_success_preview', 'signed_block_dice_div_3', 'has_test_preview'],
+            'handoff_preview': 'movement and receiver catch; shared remaining team rerolls; usable Catch; no bounce recovery',
             'ball_airborne': 'uncarried airborne kick or pending prepared pass/catch; carried takes precedence',
             'count_encoding': 'n/(1+abs(n)); profile divisors MA10 ST8 AG6 PA6 AV12',
             'pathfinding': game.config.pathfinding_enabled,
@@ -286,7 +287,7 @@ class Season3Adapter:
 
 
 class Season3Env(gym.Env):
-    """Every pending coach decision, or a home learner against a supplied bot.
+    """Every pending coach decision, or either learner side against a supplied bot.
 
     In self-play the next decision can belong to either coach, including twice
     consecutively. Reward is terminal win/draw/loss from the pre-step actor's
@@ -294,7 +295,7 @@ class Season3Env(gym.Env):
     """
     metadata = {'render_modes': []}
 
-    def __init__(self, pathfinding=False, opponent=None, max_decisions=10000):
+    def __init__(self, pathfinding=False, opponent=None, max_decisions=10000, learner_side=0):
         if opponent is not None:
             if isinstance(opponent, str):
                 valid = opponent == 'random'
@@ -304,7 +305,13 @@ class Season3Env(gym.Env):
                 raise ValueError('opponent must be None, random, or a non-human engine Agent')
         if not isinstance(max_decisions, int) or max_decisions <= 0:
             raise ValueError('max_decisions must be a positive integer')
+        if (not isinstance(learner_side, (int, np.integer)) or
+                isinstance(learner_side, (bool, np.bool_)) or learner_side not in (0, 1)):
+            raise ValueError('learner_side must be 0 (home) or 1 (away)')
+        if learner_side == 1 and opponent is None:
+            raise ValueError('learner_side requires a supplied opponent')
         self.opponent, self.max_decisions = opponent, max_decisions
+        self.learner_side = learner_side
         self.config = load_config('season3-preview')
         self.config.pathfinding_enabled = pathfinding
         self.rules = load_rule_set('BB2025')
@@ -320,13 +327,15 @@ class Season3Env(gym.Env):
         game_seed = int(self.np_random.integers(0, 2 ** 31))
         self.game_seed, self.decisions = game_seed, 0
         self.action_space.seed(seed)
-        away = (RandomBot('opponent', seed=game_seed) if isinstance(self.opponent, str) else
+        opponent = (RandomBot('opponent', seed=game_seed) if isinstance(self.opponent, str) else
                 deepcopy(self.opponent) if self.opponent is not None else Agent('away learner', human=True))
+        learner = Agent('home learner' if self.learner_side == 0 else 'away learner', human=True)
+        home, away = (learner, opponent) if self.learner_side == 0 else (opponent, learner)
         self.game = Game('season3-rl', load_team_by_filename('human', self.rules),
-                         load_team_by_filename('human', self.rules), Agent('home learner', human=True),
+                         load_team_by_filename('human', self.rules), home,
                          away, deepcopy(self.config), ruleset=self.rules, seed=game_seed)
         self.game.init()
-        if self.opponent is not None:
+        if self.opponent is not None and self.learner_side == 0:
             # START_GAME and the coin flip belong to away. Let a configured
             # opponent handle them before returning the home learner's choice.
             self.game.step(Action(ActionType.START_GAME))

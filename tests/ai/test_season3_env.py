@@ -400,7 +400,7 @@ def test_contract_metadata_rejects_legacy_changed_rules_or_pathfinding_variant()
     env = Season3Env()
     _, info = env.reset(seed=1)
     saved = info['interface']
-    assert saved['fingerprint'] == 'f51ce8f7997f0435642dec9baa098820a773a175fc49a777b7b7cdf761b420a3'
+    assert saved['fingerprint'] == 'ec00094bec5f162d83f0f30a7197b8b3882e8a590f9a522bca6cf3ff8ccc0850'
     env.adapter.require_compatible(saved)
     for field in ('rules', 'observations'):
         incompatible = deepcopy(saved)
@@ -409,7 +409,7 @@ def test_contract_metadata_rejects_legacy_changed_rules_or_pathfinding_variant()
             env.adapter.require_compatible(incompatible)
     other = Season3Env(pathfinding=True)
     other.reset(seed=1)
-    assert other.adapter.metadata()['fingerprint'] == 'ae3de855d00bb13912b890ee82c46211e8a4ecc18e4e1036419223f8ed4ac066'
+    assert other.adapter.metadata()['fingerprint'] == 'e6fdb81780472fb4854f449025de8f015cfd2822e14871580ca17335762ad441'
     with pytest.raises(ValueError):
         other.adapter.require_compatible(saved)
     with pytest.raises(ValueError):

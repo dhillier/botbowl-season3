@@ -46,6 +46,7 @@ class Path:
         self._rolls = None
         self.block_dice = node.block_dice
         self.handoff_roll = node.handoff_roll
+        self.handoff_prob = node.handoff_prob
         self.foul_roll = node.foul_roll
 
     @property
@@ -87,6 +88,7 @@ class Path:
                self.rolls == other.rolls and \
                self.block_dice == other.block_dice and \
                self.handoff_roll == other.handoff_roll and \
+               self.handoff_prob == other.handoff_prob and \
                self.foul_roll == other.foul_roll
 
     def __repr__(self):
@@ -127,6 +129,7 @@ class Node:
         self.prob = parent.prob if parent is not None else 1
         self.foul_roll = foul_roll
         self.handoff_roll = handoff_roll
+        self.handoff_prob = None
         self.rolls = []
         self.block_dice = block_dice
         self.rr_states = rr_states if rr_states is not None else parent.rr_states
@@ -189,9 +192,16 @@ class Node:
         self._apply_roll((7 - target) / 6, self.SURE_HANDS, self.TRR)
         # TODO: should pickup be added to path prob if it's the last step?
 
-    def apply_handoff(self, target):
+    def apply_handoff(self, target, catch_reroll=False):
         self.handoff_roll = target
         self.can_handoff = False
+        # Keep prob as movement-only for existing path consumers. The separate
+        # completion preview shares the remaining team budget with movement.
+        # Catch belongs to the receiver, not the moving player's skill pool.
+        p = (7 - target) / 6
+        self.handoff_prob = sum(weight * (p + (1 - p) * p
+                                         if catch_reroll or state[self.TRR] else p)
+                                for state, weight in self.rr_states.items())
 
     def apply_foul(self, target):
         self.foul_roll = target
@@ -467,7 +477,7 @@ class Pathfinder:
         player_at = self.game.get_player_at(to_pos)
         next_node = Node(node, to_pos, 0, 0, node.euclidean_distance)
         target = self._get_handoff_target(player_at)
-        next_node.apply_handoff(target)
+        next_node.apply_handoff(target, player_at.can_use_skill(Skill.CATCH))
         if best_node is not None and self._best(next_node, best_node) == best_node:
             return None
         if best_before is not None and self._dominant(next_node, best_before) == best_before:

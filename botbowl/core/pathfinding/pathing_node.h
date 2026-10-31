@@ -41,6 +41,7 @@ namespace node_ns {
             int moves_left, gfis_left, foul_roll, handoff_roll, block_dice;
             bool can_foul, can_block, can_handoff;
             double euclidean_distance, prob;
+            double handoff_prob = -1.0;
             std::vector<int> rolls;
             rr_state rr_states;
 
@@ -62,7 +63,7 @@ namespace node_ns {
             void apply_gfi(int target);
             void apply_dodge(int target, bool allow_dodge);
             void apply_pickup(int target);
-            void apply_handoff(int target);
+            void apply_handoff(int target, bool catch_reroll);
             void apply_foul(int target);
             void apply_stand_up(int target);
             void apply_jump(int target); // Season 3: no Dodge skill re-roll.

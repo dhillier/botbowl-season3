@@ -21,7 +21,7 @@ cdef extern from "pathing_node.h" namespace "node_ns":
     cdef cppclass Node:
         int moves_left, gfis_left, foul_roll, handoff_roll, block_dice
         bint can_foul, can_block, can_handoff;
-        double euclidean_distance, prob
+        double euclidean_distance, prob, handoff_prob
         Square position
         shared_ptr[Node] parent
         vector[int] rolls
@@ -34,7 +34,7 @@ cdef extern from "pathing_node.h" namespace "node_ns":
         void apply_gfi(int)
         void apply_dodge(int, bint)
         void apply_pickup(int)
-        void apply_handoff(int)
+        void apply_handoff(int, bint)
         void apply_foul(int)
         void apply_stand_up(int)
         void apply_jump(int)  # Season 3, October 2026.

@@ -40,6 +40,13 @@ automatically. All returned decisions then belong to the home learner, including
 defensive decisions during the opponent's turn. With `opponent=None`, both coaches
 are external and every pending decision is returned.
 
+For side-swapped evaluation, pass `learner_side=1` with a supplied opponent.
+The bot then controls home, the learner controls away, and every external choice
+(including Start Game and defensive decisions) belongs to away. Default
+`learner_side=0` preserves home control. Observation coordinates and terminal
+rewards still follow the actual acting coach; this option does not change the
+versioned feature/action contract. A side override requires a supplied opponent.
+
 Executable smoke rollouts use offered formation macros and finish legal setups,
 then sample remaining choices from the mask:
 
@@ -54,19 +61,19 @@ python -m examples.season3_rl --seed 4 --opponent scripted
 ## Coach perspective and action encoding
 
 The acting coach determines observation rows, ownership features and coordinates.
-Rows 0–11 are that coach's prepared roster, in its stable file order; rows 12–23
+Rows 0â€“11 are that coach's prepared roster, in its stable file order; rows 12â€“23
 are the opposing roster. Off-pitch players retain their rows. Away-coach decisions
 mirror x as `27 - x`; y is unchanged. Both coaches therefore attack toward x=1.
-The 28×17 arena includes crowd squares used by pushes.
+The 28Ã—17 arena includes crowd squares used by pushes.
 
 The fixed `Discrete(10256)` action space has these contiguous blocks:
 
 | Block | Offset | Size | Payload |
 | --- | ---: | ---: | --- |
 | Simple choices | 0 | 32 | Explicit action-type order |
-| Player choices | 32 | 216 | Nine types × 24 relative roster slots |
-| Position choices | 248 | 4,284 | Nine types × 476 squares, row-major |
-| Player placement | 4,532 | 5,724 | Own roster slot × 477 destinations; 476 means reserves |
+| Player choices | 32 | 216 | Nine types Ã— 24 relative roster slots |
+| Position choices | 248 | 4,284 | Nine types Ã— 476 squares, row-major |
+| Player placement | 4,532 | 5,724 | Own roster slot Ã— 477 destinations; 476 means reserves |
 
 `Season3ActionCodec.encode(Action(...))` and `.decode(index)` round-trip these
 structural slots. The codec's `action_manifest()` records their exact type order.
@@ -91,11 +98,11 @@ The exported name tuples in `botbowl/ai/season3_env.py` define feature order.
 
 | Key | Shape | Dtype and meaning |
 | --- | --- | --- |
-| `spatial` | 63×17×28 | float32, 0–1; native characteristics, statuses, ownership, skills, ball/terrain, declared target, pending tests and planned route |
-| `players` | 24×56 | float32, 0–1; stable identities including bench, KO, casualties, ejection, heat and snack exclusions |
-| `global` | 241 | float32, 0–1; weather, team resources, action allowances, selected groups, current/stack/re-roll procedures and decision ownership |
-| `public_rolls` | 8×46 | float32, -1–1; up to eight already-rolled pending tests, their targets/modifiers and RollType |
-| `action_features` | 10,256×3 | float32, -1–1; test-success preview, signed Block dice / 3, and preview-present flag, indexed by action |
+| `spatial` | 63Ã—17Ã—28 | float32, 0â€“1; native characteristics, statuses, ownership, skills, ball/terrain, declared target, pending tests and planned route |
+| `players` | 24Ã—56 | float32, 0â€“1; stable identities including bench, KO, casualties, ejection, heat and snack exclusions |
+| `global` | 241 | float32, 0â€“1; weather, team resources, action allowances, selected groups, current/stack/re-roll procedures and decision ownership |
+| `public_rolls` | 8Ã—46 | float32, -1â€“1; up to eight already-rolled pending tests, their targets/modifiers and RollType |
+| `action_features` | 10,256Ã—3 | float32, -1â€“1; test-success preview, signed Block dice / 3, and preview-present flag, indexed by action |
 | `action_mask` | 10,256 | int8, 0/1; current legal actions |
 
 AG and PA are distinct native targets divided by 6; MA uses 10, ST 8, AV 12.
@@ -123,13 +130,30 @@ use their enum values. Empty rows have present=0. No RNG state, future roll,
 opponent policy internals or wall clocks are included. Observation reads consume
 no randomness and agree after engine search undo/redo.
 
-Action previews retain engine semantics. Path previews include route risks and
-the available re-roll budget; downstream Block/hand-off/foul consequences remain
-separate. Direct roll previews multiply the displayed test chances without
-assuming re-roll use. FOUL previews use 2D6. These are test previews, not complete
+Observation contract `s3-observations-v2` corrects HANDOFF previews: they include
+both movement and the receiver's catch, with marking, weather, an available
+Catch skill reroll and the team rerolls remaining on each successful movement
+branch. A reroll spent on movement cannot also reroll the catch, and no test
+gets a third attempt. Direct adjacent handoffs use the same catch calculation.
+The three feature columns and action IDs are unchanged. Engine `Path.prob`
+remains movement-only; the new `Path.handoff_prob` supplies this combined preview
+without changing existing scripted-coach calculations or route selection.
+
+Other path previews include route risks and the available re-roll budget;
+downstream Block/foul consequences remain separate. Other direct roll previews
+multiply the displayed test chances without assuming re-roll use. FOUL previews
+use 2D6. These are test previews, not complete
 possession probabilities, expected rewards or globally optimal routes. Each
 action has its own row, so Jump and MOVE to the same square do not overwrite one
 another. Illegal-action rows are zero.
+
+The handoff probability means the selected receiver catches successfully; it
+does not include recovery after a failed catch/bounce or safety on the defender's
+next turn. It assumes the applicable rerolls are taken, rather than predicting
+the learner's later reroll decisions. The v1 contract excluded the receiver's
+catch on path-assisted handoffs. Old checkpoint/dataset metadata is rejected;
+Downstream agents must explicitly migrate compatible v1 checkpoints using their
+own model-aware converter. Stored demonstrations need regeneration.
 
 ## Episodes, rewards and recording
 
@@ -159,7 +183,7 @@ Both conditions require reset before another step.
 
 Observations are roughly 255 KiB each before compression. A collector can retain
 the previous observation and append `next_info['decision']` and eventual outcome;
-there is no persistent dataset writer in this slice. Benchmark throughput and
+dataset collection and model training belong to downstream agent projects. Benchmark throughput and
 choose storage/compression before generating a large replay buffer. Custom
 opponents may need their own seeded implementation for reproducible internal
 choices; the provided random opponent is seeded by the environment.
@@ -189,6 +213,4 @@ Validation includes every action index in both orientations, mask/engine round
 trips, PA/status/resource features, choice ownership, treatment aliases, disabled
 Block choices, re-roll context, search reversal, terminal/truncation semantics,
 and five full masked rollouts. See [migration validation](season3-migration.md)
-for current suite counts. Representative coach review, throughput measurements,
-a learning/evaluation pipeline and Windows/5090 validation remain before expensive
-training. No training, deployment or change to ordinary game defaults occurred.
+for historical suite counts and [split validation](split-validation.md) for the extracted repository. Either learner side and the corrected handoff previews are retained. Training, checkpoint conversion and evaluation studies belong in downstream agent projects. Ordinary game defaults are unchanged.

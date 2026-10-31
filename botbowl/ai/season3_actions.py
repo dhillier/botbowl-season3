@@ -4,7 +4,7 @@ import operator
 import numpy as np
 
 from botbowl.core.model import Action
-from botbowl.core.table import ActionType
+from botbowl.core.table import ActionType, Skill
 
 
 ACTION_VERSION = 's3-actions-v1'
@@ -148,6 +148,16 @@ class Season3ActionCodec:
                 if i is not None:
                     if i < len(choice.paths):
                         probability, has_preview = choice.paths[i].prob, 1.0
+                        if kind == ActionType.HANDOFF:
+                            probability = choice.paths[i].handoff_prob
+                            if probability is None:
+                                raise ValueError('Handoff path lacks its catch-completion preview')
+                    elif kind == ActionType.HANDOFF:
+                        receiver = self.game.get_player_at(action.position)
+                        probability = self.game.get_catch_prob(
+                            receiver, handoff=True, allow_catch_reroll=receiver.can_use_skill(Skill.CATCH),
+                            allow_team_reroll=True)
+                        has_preview = 1.0
                     elif i < len(choice.rolls) and choice.rolls[i]:
                         targets = choice.rolls[i]
                         if kind == ActionType.FOUL:

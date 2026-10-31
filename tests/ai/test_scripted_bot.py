@@ -24,3 +24,19 @@ def test_scripted_bot():
     game.set_available_actions()
 
     game.step(botbowl.Action(botbowl.ActionType.START_GAME))
+
+def test_scripted_teacher_accepts_favourable_human_interface_block_dice():
+    from tests.game.test_season3 import season3_turn
+    from tests.util import only_fixed_rolls
+    from botbowl import Action, ActionType, BBDieResult
+    game, (attacker, defender) = season3_turn([(5, 5)], [(6, 5)], rerolls=1)
+    attacker.extra_st = 3
+    coach = MyScriptedBot('teacher')
+    coach.new_game(game, attacker.team)
+    game.step(Action(ActionType.START_BLOCK, player=attacker))
+    with only_fixed_rolls(game, block_dice=[BBDieResult.BOTH_DOWN, BBDieResult.PUSH]):
+        game.step(Action(ActionType.BLOCK, position=defender.position))
+    assert not any(a.action_type == ActionType.DONT_USE_REROLL for a in game.get_available_actions())
+    action = coach.act(game)
+    assert action.action_type == ActionType.SELECT_PUSH
+    assert game._is_action_allowed(action)

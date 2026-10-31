@@ -1,6 +1,10 @@
 name: Python package
 
-on: [pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,7 +15,7 @@ concurrency:
 
 jobs:
   build:
-    # The inherited dependency pins support Python 3.8–3.11. Ubuntu 22.04
+    # The inherited dependency pins support Python 3.8â€“3.11. Ubuntu 22.04
     # has downloadable interpreters for every version in this matrix.
     runs-on: ubuntu-22.04
     timeout-minutes: 20

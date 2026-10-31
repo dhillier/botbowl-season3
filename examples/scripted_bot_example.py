@@ -125,6 +125,13 @@ class MyScriptedBot(ProcBot):
         """
         reroll_proc = game.get_procedure()
         context = reroll_proc.context
+        # External (human-interface) collectors see die selection and re-roll
+        # together on favourable Blocks. Declining means selecting a die;
+        # DONT_USE_REROLL is deliberately absent in that interface.
+        if isinstance(context, botbowl.Block) and not any(
+                a.action_type == ActionType.DONT_USE_REROLL and not a.disabled
+                for a in game.get_available_actions()):
+            return self.block(game)
         if type(context) == botbowl.Dodge:
             return Action(ActionType.USE_REROLL)
         if type(context) == botbowl.Pickup:
@@ -568,9 +575,12 @@ class MyScriptedBot(ProcBot):
         Select block die or reroll.
         """
         # Get attacker and defender
-        attacker = game.get_procedure().attacker
-        defender = game.get_procedure().defender
-        is_blitz = game.get_procedure().blitz
+        procedure = game.get_procedure()
+        if isinstance(procedure, botbowl.Reroll):
+            procedure = procedure.context
+        attacker = procedure.attacker
+        defender = procedure.defender
+        is_blitz = procedure.blitz
         dice = game.num_block_dice(attacker, defender, blitz=is_blitz)
 
         # Loop through available dice results

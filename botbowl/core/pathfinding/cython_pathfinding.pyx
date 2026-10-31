@@ -48,13 +48,14 @@ cdef class Path:
         NodePtr final_node
         public tuple _steps, _rolls
         public double prob
-        public object block_dice, handoff_roll, foul_roll
+        public object block_dice, handoff_roll, foul_roll, handoff_prob
 
     cdef void set_node(self, NodePtr n):
         self.final_node = n
         self.prob = n.get().prob
         self.block_dice = None if n.get().block_dice == 0 else n.get().block_dice
         self.handoff_roll = None if n.get().handoff_roll == 0 else n.get().handoff_roll
+        self.handoff_prob = None if n.get().handoff_prob < 0 else n.get().handoff_prob
         self.foul_roll = None if n.get().foul_roll == 0 else n.get().foul_roll
 
     cpdef object get_last_step(self):
@@ -95,7 +96,7 @@ cdef class Path:
 
     def __reduce__(self):
         # Need custom reduce() because built in reduce() can't handle the c++ objects
-        return recreate_path, (self.steps, self.rolls, self.block_dice, self.foul_roll, self.handoff_roll, self.prob)
+        return recreate_path, (self.steps, self.rolls, self.block_dice, self.foul_roll, self.handoff_roll, self.prob, self.handoff_prob)
 
     def __eq__(self, other):
         return  self.prob == other.prob and \
@@ -103,6 +104,7 @@ cdef class Path:
                 self.rolls == other.rolls and \
                 self.block_dice == other.block_dice and \
                 self.handoff_roll == other.handoff_roll and \
+                self.handoff_prob == other.handoff_prob and \
                 self.foul_roll == other.foul_roll
 
     def __repr__(self):
@@ -116,13 +118,14 @@ cdef class Path:
 forward_model.immutable_types.add(Path)
 
 
-def recreate_path(steps, rolls, block_dice, foul_roll, handoff_roll, prob):
+def recreate_path(steps, rolls, block_dice, foul_roll, handoff_roll, prob, handoff_prob=None):
     path = Path()
     path._steps = steps
     path._rolls = rolls
     path.block_dice = block_dice
     path.foul_roll = foul_roll
     path.handoff_roll = handoff_roll
+    path.handoff_prob = handoff_prob
     path.prob = prob
     return path
 
@@ -451,7 +454,7 @@ cdef class Pathfinder:
 
         next_node = make_shared[Node](node, to_pos, 0, 0, node.get().euclidean_distance)
         target = self._get_handoff_target(player_at)
-        next_node.get().apply_handoff(target)
+        next_node.get().apply_handoff(target, player_at.can_use_skill(table.Skill.CATCH))
 
         if best_node.use_count()>0 and self._best(next_node, best_node) == best_node:
             return NodePtr()
