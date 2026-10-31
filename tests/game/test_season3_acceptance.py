@@ -187,6 +187,38 @@ def test_project_fumble_ruling_across_ranges_sun_marking_and_natural_results(dis
     assert not game.has_report_of_type(OutcomeType.INTERCEPTION)
 
 
+@pytest.mark.parametrize('pa,expected', [
+    (1, ('FUMBLE', 'FUMBLE', 'FUMBLE', 'ACCURATE_PASS', 'ACCURATE_PASS', 'ACCURATE_PASS')),
+    (2, ('FUMBLE', 'FUMBLE', 'FUMBLE', 'FUMBLE', 'ACCURATE_PASS', 'ACCURATE_PASS'))])
+@pytest.mark.parametrize('natural', range(1, 7))
+def test_pa_one_passes_modified_one_but_pa_two_fumbles(pa, expected, natural):
+    game, (passer,) = season3_turn([(3, 5)], ball=(3, 5))
+    passer.extra_pa = passer.get_pa() - pa
+    result = OutcomeType[expected[natural - 1]]
+    with only_fixed_rolls(game, d6=[natural], d8=[7]):
+        pass_ball(game, passer, Square(14, 5))
+    passing = [r for r in game.state.reports if r.outcome_type in (
+        OutcomeType.ACCURATE_PASS, OutcomeType.FUMBLE, OutcomeType.INACCURATE_PASS)]
+    assert len(passing) == 1 and passing[0].outcome_type == result
+    assert passing[0].rolls[0].target == pa
+    assert passing[0].rolls[0].modifiers == -3
+
+
+@pytest.mark.parametrize('natural,distance,weather,opponents,modified,expected', [
+    (1, 3, WeatherType.NICE, [], 1, OutcomeType.FUMBLE),
+    (6, 11, WeatherType.VERY_SUNNY, [(2, 5), (2, 6)], 0, OutcomeType.ACCURATE_PASS)])
+def test_pa_one_natural_results_override_modified_total(natural, distance, weather, opponents, modified, expected):
+    game, players = season3_turn([(3, 5)], opponents, ball=(3, 5))
+    passer = players[0]
+    passer.extra_pa = passer.get_pa() - 1
+    game.state.weather = weather
+    with only_fixed_rolls(game, d6=[natural], d8=[7]):
+        pass_ball(game, passer, Square(3 + distance, 5))
+    report = next(r for r in game.state.reports if r.outcome_type == expected)
+    assert report.rolls[0].get_result() == modified
+    assert game.has_report_of_type(OutcomeType.FUMBLE) == (natural == 1)
+
+
 def test_interceptor_choices_exclude_endpoints_ineligible_players_and_reserves_in_roster_order():
     game, (passer, catcher, first, second, endpoint_row, no_hands, distracted) = season3_turn(
         [(5, 5), (9, 5)], [(7, 6), (7, 4), (5, 6), (6, 5), (8, 5)])

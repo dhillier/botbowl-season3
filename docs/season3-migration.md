@@ -45,9 +45,11 @@ Selected simplifications retained: the fair coin-toss interface represents the e
 
 ## Approved interpretation
 
-The supplied revised fumble wording says a natural 1 or a result of **exactly 1 after modifiers**. The May 2026 FAQ allows modified results below 1 but does not resolve that wording. On 28 October 2026 the user chose **modified 1 or less as a fumble**. A Long Bomb with only its -3 range modifier therefore fumbles on natural 1–4, is inaccurate on 5 and accurate on 6.
+The supplied revised fumble wording says a natural 1 or a result of **exactly 1 after modifiers**. The May 2026 FAQ allows modified results below 1 but does not resolve that wording. On 28 October 2026 the user chose **modified 1 or less as a fumble on a failed Passing Ability Test**. On 31 October the user relayed the explicit exception: **PA 1+ succeeds on a modified 1 unless the die is a natural 1**. Natural 1 still fails and natural 6 still succeeds. The engine already checks success before classifying a fumble.
 
-The preview follows that approved project ruling. Tests enumerate all natural results across range, sun and marking penalties, and verify Pass/team re-roll timing. This is not presented as an official erratum. The [acceptance record](season3-acceptance.md) records the source distinction and the digital ruler convention.
+With only a Long Bomb's -3 modifier, the original **PA 4+** example fumbles on natural 1–4, is inaccurate on 5 and accurate on 6. A **PA 1+** passer instead fumbles on natural 1–3 and passes accurately on 4–6.
+
+The preview follows that approved project ruling and user-relayed clarification. Tests enumerate all natural results across range, sun and marking penalties, explicitly cover PA 1+/PA 2+ boundaries, and verify Pass/team re-roll timing. This is not presented as an official erratum. The [acceptance record](season3-acceptance.md) records the source distinction and the digital ruler convention.
 
 ## Remaining work
 

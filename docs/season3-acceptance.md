@@ -21,18 +21,39 @@ Existing tests cover the other applicable FAQ points: Charge team re-rolls,
 repeated jumps, inactive-team possession after a Pass/Hand-off, and Distracted
 Block/Dodge restrictions.
 
-## Fumbles: user ruling accepted
+## Fumbles: user ruling and PA 1+ clarification
 
 The supplied game chapter, PDF page 44, says a natural 1 or exactly 1 after
 modifiers. The user explicitly chose **modified 1 or less** on 28 October 2026.
-The engine therefore uses a natural 1 or a modified result <= 1, with the natural
-6 success rule retained. For a Long Bomb with only its -3 range modifier, natural
-1–4 fumble, 5 is inaccurate, and 6 is accurate.
+On 31 October 2026, the user relayed a further clarification: **PA 1+ players
+succeed on a modified 1**, provided the die is not a natural 1. This matches the
+engine's existing order of resolution: check whether the Passing Ability Test
+succeeds before classifying a failed test as a fumble.
 
-This is an approved project interpretation, not an official erratum. Tests
+- A natural 1 fails and is classified as a fumble, including for PA 1+.
+- A natural 6 succeeds regardless of modifiers.
+- Otherwise, a result meeting the player's PA target succeeds. In particular,
+  a modified 1 succeeds for PA 1+.
+- A failed test with a modified result of 1 or less is a fumble; other failed
+  tests produce an inaccurate pass. Skills can then affect the outcome.
+
+For a Long Bomb with only its -3 range modifier:
+
+| Passing Ability | Natural 1–3 | Natural 4 (modified 1) | Natural 5 | Natural 6 |
+| --- | --- | --- | --- | --- |
+| PA 1+ | Fumble | Accurate | Accurate | Accurate |
+| PA 2+ | Fumble | Fumble | Accurate | Accurate |
+| PA 4+ (the original acceptance example) | Fumble | Fumble | Inaccurate | Accurate |
+
+The clarification was relayed by the user; no new official source was supplied.
+It is recorded as project guidance, not an official erratum. Tests
 enumerate all natural results across the four ranges, sunny weather and marking,
 and check that both Pass and team re-rolls resolve before flight/interception.
-The existing no-second-re-roll cases remain part of acceptance.
+Explicit PA 1+/PA 2+ Long Bomb cases cover all six natural results, with separate
+natural-1 and heavily penalized natural-6 cases. The existing no-second-re-roll
+cases remain part of acceptance. No engine behavior changed for this clarification.
+The targeted local run of `test_season3_acceptance.py`, `test_season3.py` and
+`test_season3_skill_modifiers.py` passed 652 tests, including 14 new boundary cases.
 
 ## Bomb rethrows with no Passing Ability: user ruling accepted
 

@@ -3427,8 +3427,9 @@ class Season3PassAttempt(PassAttempt):
                 result = self.roll.get_sum()
                 succeeded = self.roll.is_d6_success()
                 self.accurate = succeeded and self.pass_distance != PassDistance.HAIL_MARY
-                # Coach ruling, 28 October 2026: modified 1 or less. The supplied
-                # literal wording differs; see docs/season3-acceptance.md.
+                # Check success first: PA 1+ passes a modified 1, but a natural
+                # 1 still fails. Failed tests at modified 1 or less fumble;
+                # see the user clarification in docs/season3-acceptance.md.
                 self.fumble = not succeeded and (result == 1 or result + self.roll.modifiers <= 1)
                 outcome = (OutcomeType.ACCURATE_PASS if self.accurate else
                            OutcomeType.FUMBLE if self.fumble else OutcomeType.INACCURATE_PASS)
