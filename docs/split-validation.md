@@ -11,6 +11,8 @@ Validated on Windows with CPython 3.11 and a freshly installed, dedicated enviro
 - Dependency consistency and fatal-error source lint pass.
 - Original upstream commit `3e550bda3666c39efe478fb9465646af24576665` remains an ancestor. Custom-learning history is excluded from the community branch.
 
-The generic runtime is copied without semantic changes from research snapshot `bb07205b17f6adf69eee568bdf437b9f7537523e`; downstream research pins the extracted community commit and verifies every shared runtime file. Test results demonstrate integration and regression coverage for the declared fixed-Human scope, not complete tabletop fidelity or agent strength. Coach playtesting and digital-ruler review remain open.
+These counts describe the initial extraction from research snapshot `bb07205b17f6adf69eee568bdf437b9f7537523e`. A later CI run exposed an inherited player-swap rollback defect; two deterministic regressions fail before the correction and pass afterward in both editions. The correction passes all 282 forward-model and related Season 3 acceptance/action/flow checks. Current full-suite results are available in GitHub Actions. Downstream research pins the community runtime and receives this correction as an explicit update.
+
+Test results demonstrate integration and regression coverage for the declared fixed-Human scope, not complete tabletop fidelity or agent strength. Coach playtesting and digital-ruler review remain open.
 
 Repeat the checks with the commands in [README.md](../README.md). The repository also runs the core suite under Python 3.8, 3.9, 3.10 and 3.11 in GitHub Actions.

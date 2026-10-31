@@ -10,7 +10,9 @@ Later reusable changes were extracted from research snapshot `bb07205b17f6adf69e
 | `8b57537` | Either home or away can be the learner against a supplied opponent. |
 | `ded2809` | Handoff previews include receiver catch risk and the shared remaining re-roll budget; Python/native pathfinders agree; observation contract becomes v2. |
 
-The corresponding generic environment, scripted-bot and handoff regression tests are retained. Research-specific trainers, checkpoint converters, teachers and reports from those commits are excluded. The complete current `botbowl/core`, web/data trees, generic AI modules and scripted example match the source snapshot; the extraction does not redesign the runtime.
+The corresponding generic environment, scripted-bot and handoff regression tests are retained. Research-specific trainers, checkpoint converters, teachers and reports from those commits are excluded. At extraction commit `7888cc6`, the `botbowl/core`, web/data trees, generic AI modules and scripted example match the source snapshot.
+
+A subsequent CI run exposed an inherited `Game.swap` rollback defect during setup reorganization. The community engine now explicitly logs swapped player positions and board cells. Deterministic regressions cover undo/redo in BB2016 and Season 3. Ordinary swap execution, rules and agent-interface fingerprints are unchanged; downstream research receives the same fix through its engine pin.
 
 This branch does not descend from the custom-learning commits. BotBowl's upstream examples and history remain intact. Community documentation and CI describe only the reusable framework. Historical migration commits can still contain the original project planning text; no experiment history is imported.
 

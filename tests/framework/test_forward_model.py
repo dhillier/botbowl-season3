@@ -124,8 +124,33 @@ def test_forward_model_revert_every_step():
         game.step(get_random_action(game))
 
 
-def get_game(fast_mode=True, human_agents=True):
-    config = load_config("bot-bowl")
+@pytest.mark.parametrize('season3', [False, True])
+def test_player_swap_restores_positions_and_board_on_revert_and_forward(season3):
+    game = get_game(season3=season3)
+    first, second = game.state.home_team.players[:2]
+    first_square, second_square = game.get_square(16, 5), game.get_square(17, 5)
+    game.put(first, first_square)
+    game.put(second, second_square)
+    before = game.get_step()
+
+    game.swap(first, second)
+    assert first.position == second_square and second.position == first_square
+    assert game.get_player_at(second_square) is first
+    assert game.get_player_at(first_square) is second
+
+    steps = game.revert(before)
+    assert first.position == first_square and second.position == second_square
+    assert game.get_player_at(first_square) is first
+    assert game.get_player_at(second_square) is second
+
+    game.forward(steps)
+    assert first.position == second_square and second.position == first_square
+    assert game.get_player_at(second_square) is first
+    assert game.get_player_at(first_square) is second
+
+
+def get_game(fast_mode=True, human_agents=True, season3=False):
+    config = load_config("season3-preview" if season3 else "bot-bowl")
     config.fast_mode = fast_mode
     ruleset = load_rule_set(config.ruleset)
     home = load_team_by_filename("human", ruleset)

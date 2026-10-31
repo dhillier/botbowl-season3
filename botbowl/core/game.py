@@ -12,7 +12,7 @@ import itertools
 
 from botbowl.core.load import *
 from botbowl.core.procedure import *
-from botbowl.core.forward_model import Trajectory, MovementStep, Step
+from botbowl.core.forward_model import Trajectory, MovementStep, AssignmentStep, CallableStep, Step
 from botbowl.core.geometry import under_interception_ruler
 from copy import deepcopy
 from typing import Optional, Tuple, List, Union, Any
@@ -1326,6 +1326,14 @@ class Game:
         assert piece_b.position is not None
         pos_a = piece_a.position
         pos_b = piece_b.position
+        # Player positions and board cells bypass automatic assignment logging.
+        # Setup reorganization can swap occupied squares, so record both explicitly.
+        swaps = []
+        if self.trajectory.enabled:
+            for piece, destination in ((piece_a, pos_b), (piece_b, pos_a)):
+                if type(piece) is Player:
+                    row = self.state.pitch.board[destination.y]
+                    swaps.append((piece, piece.position, destination, row, row[destination.x]))
         piece_a.position = pos_b
         piece_b.position = pos_a
         if type(piece_b) is Player:
@@ -1342,6 +1350,12 @@ class Game:
             self.state.pitch.board[pos_b.y][pos_b.x] = piece_a
         elif isinstance(piece_a, Catchable):
             piece_a.move_to(pos_b)
+
+        for piece, origin, destination, row, previous_occupant in swaps:
+            self.trajectory.log_state_change(AssignmentStep(piece, 'position', origin, destination))
+            self.trajectory.log_state_change(CallableStep(
+                row, list.__setitem__, (destination.x, piece),
+                list.__setitem__, (destination.x, previous_occupant)))
 
     def get_catch_modifiers(self, catcher: Player, accurate: bool = False, interception: bool = False,
                             handoff: bool = False, inaccurate: bool = False) -> int:
