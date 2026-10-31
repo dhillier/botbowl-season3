@@ -228,10 +228,45 @@ class MyScriptedBot(ProcBot):
                 return action
 
         # Split logic depending on offense, defense, and loose ball - and plan actions
+        if game.is_season3:
+            # Fanatics cannot enter the ordinary movement/block planner. Resolve
+            # their distinct activation before considering those declarations.
+            for choice in game.get_available_actions():
+                if choice.action_type == ActionType.START_BALL_AND_CHAIN and choice.players:
+                    return Action(choice.action_type, player=choice.players[0])
         ball_carrier = game.get_ball_carrier()
         self._make_plan(game, ball_carrier)
         action = self._get_next_action()
         return action
+
+    def season3_skill_decision(self, game):
+        proc = game.get_procedure()
+        if isinstance(proc, botbowl.BallAndChainAction):
+            player = proc.player
+            if player.state.moves >= player.get_ma():
+                return Action(ActionType.END_PLAYER_TURN)
+            opponents = game.get_players_on_pitch(game.get_opp_team(player.team))
+            choices = [a for a in game.get_available_actions() if a.action_type == ActionType.BALL_AND_CHAIN]
+            if choices:
+                def risk(direction):
+                    dx, dy = direction.x - player.position.x, direction.y - player.position.y
+                    score = 0
+                    for side in (-1, 0, 1):
+                        square = game.get_square(player.position.x + dx - side * dy,
+                                                 player.position.y + dy + side * dx)
+                        occupant = game.get_player_at(square)
+                        if game.is_out_of_bounds(square):
+                            score += 1000
+                        elif occupant is not None:
+                            score += 100 if occupant.team == player.team else -10
+                        elif opponents:
+                            score += min(square.distance(p.position) for p in opponents)
+                    return score
+                direction = min(choices[0].positions, key=risk)
+                if risk(direction) < 100:
+                    return Action(ActionType.BALL_AND_CHAIN, position=direction)
+            return Action(ActionType.END_PLAYER_TURN)
+        return super().season3_skill_decision(game)
 
     def _get_next_action(self):
         action = self.actions[0]

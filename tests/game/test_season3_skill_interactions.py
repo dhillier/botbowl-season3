@@ -256,3 +256,13 @@ def test_rooted_player_can_block_and_loses_root_when_knocked_down():
     with only_fixed_rolls(game, d6=[1, 1]):
         run_proc(game, KnockDown(game, player))
     assert not player.state.taken_root
+
+
+def test_boxed_in_side_step_has_normal_push_squares_and_block_probabilities():
+    game, players = season3_turn([(10, 5), (10, 4), (10, 6), (11, 4)],
+                                [(11, 5), (11, 6), (12, 4), (12, 5), (12, 6)])
+    attacker, defender = players[0], players[4]
+    defender.extra_skills = [Skill.SIDE_STEP]
+    squares = game.get_push_squares(attacker.position, defender.position)
+    assert {(s.x, s.y) for s in squares} == {(12, 4), (12, 5), (12, 6)}
+    assert all(0 <= p <= 1 for p in game.get_block_probs(attacker, defender))

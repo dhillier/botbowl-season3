@@ -2,9 +2,9 @@
 
 A community adaptation of [BotBowl](https://github.com/njustesen/botbowl) for Blood Bowl Season 3, retaining its Python simulation, web interface, pathfinding, scripted bots and generic agent interfaces.
 
-**Current scope: a preview for fixed Human-versus-Human standalone matches.** This is not an all-team or league implementation. Automated rule scenarios are covered; representative coach playtesting and review of the digital interception ruler remain release gates. Ordinary game defaults and legacy v4 environments still use BB2016. Select Season 3 explicitly.
+**Current scope: Season 3 standalone engine preview, with data for all 30 teams.** The web preview and versioned RL environments use fixed Human squads; other rosters are available through the standalone Python helper below. Representative coach playtesting and review of the digital interception ruler remain release gates. Ordinary game defaults and legacy v4 environments still use BB2016. Select Season 3 explicitly.
 
-The local team expansion includes all 30 supplied Season 3 rosters (159 positionals) and engine scenarios for all 108 skills and traits. The skill audit records source review, regression evidence and outstanding rulings; run `python scripts/skill_audit.py`. Individual teams still need incremental match validation. The existing prepared Human squads and Human-only RL interface retain their scope.
+The team expansion includes all 30 supplied Season 3 rosters (159 positionals) and engine scenarios for all 108 skills and traits. The skill audit records source review, regression evidence and project rulings; run `python scripts/skill_audit.py --require-complete`. See the [incremental team validation record](docs/season3-team-validation.md) for match coverage, team special rules and remaining limits. League progression and team-specific tactical development remain separate work.
 
 ## Get started
 
@@ -49,6 +49,24 @@ vampires = get_team_profile('Vampire')   # positions, limits, skills, costs and 
 rules = load_rule_set('BB2025')          # all 159 Season 3 positional profiles
 runner = rules.get_role('Vampire Runner', 'Vampire')
 ```
+
+Validate additional teams incrementally on this computer:
+
+```sh
+python scripts/validate_season3_teams.py --team amazon
+python scripts/validate_season3_teams.py --team vampire
+# Every roster, stopping at the first failure:
+python scripts/validate_season3_teams.py
+```
+
+The runner builds legal coverage squads, plays full scripted matches home and away
+against the Human baseline, and saves per-match reports under
+`artifacts/team-validation/`. Pass `--resume` with a report directory to reuse
+passing cases when the source fingerprint matches. Squads cover all positional
+profiles and shared Big Guy alternatives; they are not tactical recommendations.
+The recorded local matrix passed 74 matches across 37 squads and all 30 teams.
+`examples.season3_teams.coverage_squads()` and `build_team()` also expose these
+squads for standalone games. The versioned RL environments retain their Human scope.
 
 Start the existing local web interface with `python examples/server_example.py`, open `http://127.0.0.1:1234`, and select the Season 3 preview mode. This entry point also registers the scripted opponent. See [installation notes](docs/installation.md) for inherited platform details.
 

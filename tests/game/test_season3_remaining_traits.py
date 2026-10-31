@@ -110,6 +110,28 @@ def test_plague_ridden_waits_for_apothecary_and_adds_registered_lineman(save):
     assert player.state.spp_earned == 2
 
 
+def test_plague_ridden_recruitment_reverts_and_replays_all_registrations():
+    game, (player, victim) = season3_turn([(5, 5)], [(6, 5)])
+    player.team.race = 'Nurgle'
+    player.extra_skills = [Skill.PLAGUE_RIDDEN]
+    with only_fixed_rolls(game, d16=[16]):
+        run_proc(game, Casualty(game, victim, player, block=True))
+    game.enable_forward_model()
+    before = game.get_step()
+    game.step(Action(ActionType.USE_SKILL))
+    recruit = player.team.players[-1]
+    changes = game.revert(before)
+    assert not player.team.state.plague_ridden_used
+    assert recruit not in player.team.players and recruit not in game.get_reserves(player.team)
+    assert recruit.player_id not in game.state.player_by_id
+    assert recruit.player_id not in game.state.team_by_player_id
+    game.forward(changes)
+    assert player.team.state.plague_ridden_used
+    assert recruit in player.team.players and recruit in game.get_reserves(player.team)
+    assert game.get_player(recruit.player_id) is recruit
+    assert game.state.team_by_player_id[recruit.player_id] is player.team
+
+
 @pytest.mark.parametrize('restriction', ['big-guy', 'stunty', 'decay', 'regeneration', 'non-block', 'already-used'])
 def test_plague_ridden_restrictions(restriction):
     game, (player, victim) = season3_turn([(5, 5)], [(6, 5)])

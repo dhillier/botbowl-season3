@@ -95,6 +95,22 @@ Validation here concerns standalone engine resolution. It does not establish tac
 
 All checks can run with `python scripts/check_local.py`; reports and JUnit output are saved under ignored `artifacts/local-checks/`. The full local run passed 2,189 tests plus dependency, native import, fatal lint and web bundle checks. Existing Gym warnings remain. `--suite skills` includes Season 3 engine and bot integration tests. These changes were developed locally without pushing or dispatching workflows.
 
+## Incremental standalone team validation, 31 October 2026
+
+The subsequent [incremental team validation](season3-team-validation.md) expands
+standalone match coverage to all 30 rosters using 37 legal coverage squads. It
+adds live Bribery and Corruption, Masters of Undeath, Swarming and Team Captain
+resolution, plus corrections found during complete scripted matches. That
+record gives the current test evidence and scope; the fixed-Human tables above
+describe the original preview and versioned RL contract.
+
+The subsequent full local regression gate passed 2,267 tests (116 existing
+warnings), dependency checks, native import, fatal lint and the web bundle check
+on Windows/Python 3.11.9. All 74 scripted integration matches passed on the same
+source fingerprint, deploying all 159 positional profiles. The 108-entry skill
+audit remains complete. Team-specific
+tactical planning, broader match-ups and league workflows remain separate work.
+
 ## Local rules references
 
 PDF page numbers below count from the first page of each supplied file:
@@ -103,6 +119,7 @@ PDF page numbers below count from the first page of each supplied file:
 - `BB S3/2 - Rules and Regulations.pdf`, pages 5–6 and 16–17: revised dice/re-roll rules (including no crowd re-roll), Distracted status and end-of-turn stunned recovery.
 - `BB S3/3 - The Game of Blood Bowl.pdf`, pages 4, 37, 41, 44–45: characteristic targets, passing, interception and catching; pages 10 and 23–25: Secure the Ball; pages 17–19: jumping diagrams, Rush order and failure locations; page 34: Blitz target declaration and movement/block sequencing; pages 12 and 57: Forego Activation and stalling; pages 3–8: fans, weather, setup, kick-off events and touchbacks; pages 35–41: injuries, casualties, treatment, fouls and arguing; pages 56–59: scoring and drive/half transitions; pages 30–33: pushes, crowd and follow-up; pages 42–49: passing-range chart, interception examples, catches and throw-in templates.
 - `BB S3/9 - Inducements.pdf`, pages 5–6: Bribe timing and consequences; purchased inducement selection remains excluded.
+- `BB S3/10 - The Teams.pdf`, pages 6–9: team special rules and the distinction between match effects, drafting and league progression.
 - `BB S3/8 - Skills & Traits.pdf`, pages 2–3: Active/Passive availability and skill-use frequency; pages 5–6, 9, 11 and 15: the selected Human starting skills. Sure Hands excludes Secure the Ball.
 
 The supplied PDFs stay outside Git. Instructions addressed to tabletop coaches are rule content, not instructions authorizing repository operations or assistant behavior.

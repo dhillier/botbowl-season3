@@ -414,6 +414,8 @@ class TeamState(Reversible):
         self.leader_reroll = False
         self.leader_half_checked = 0
         self.plague_ridden_used = False
+        self.bribery_used = False
+        self.raised_dead = False
 
     def to_json(self):
         return {
@@ -435,6 +437,8 @@ class TeamState(Reversible):
             'leader_reroll': self.leader_reroll,
             'leader_half_checked': self.leader_half_checked,
             'plague_ridden_used': self.plague_ridden_used,
+            'bribery_used': self.bribery_used,
+            'raised_dead': self.raised_dead,
             'reroll_used': self.reroll_used,
             'time_violation': self.time_violation
         }
@@ -1462,6 +1466,19 @@ class Team(Reversible):
         self.ass_coaches = ass_coaches
         self.cheerleaders = cheerleaders
         self.state = TeamState(self)
+        self.captain_id = None
+
+    def nominate_captain(self, player):
+        """Apply the optional Season 3 draft nomination without a hiring cost."""
+        from botbowl.core.roster import get_team_profile
+        if ('Team Captain' not in get_team_profile(self.race).get('special_rules', []) or
+                player not in self.players or 'Big Guy' in player.role.keywords):
+            raise ValueError('Player is not eligible to be this team captain')
+        if self.captain_id is not None and self.captain_id != player.player_id:
+            raise ValueError('A captain has already been nominated')
+        self.captain_id = player.player_id
+        if not player.has_skill(Skill.PRO):
+            player.extra_skills.append(Skill.PRO)
 
     def to_json(self):
         players = []
@@ -1480,6 +1497,7 @@ class Team(Reversible):
             'cheerleaders': self.cheerleaders,
             'fan_factor': self.fan_factor,
             'players_by_id': players_by_id,
+            'captain_id': self.captain_id,
             'state': self.state.to_json()
         }
 
@@ -1636,6 +1654,12 @@ class Formation(Immutable):
 
         positions_used = set()
 
+        def choose_player(symbol):
+            captain = next((p for p in players if p.player_id == team.captain_id), None)
+            if game.is_season3 and captain is not None and len(positions_used) == game.config.pitch_max - 1:
+                return captain
+            return self._get_player(players, symbol)
+
         # setup on scrimmage
         for t in ['S', 's', 'p', 'b', 'c', 'm', 'a', 'v', 'd', '0', 'x']:
             for y in range(len(self.formation)):
@@ -1650,7 +1674,7 @@ class Formation(Immutable):
                 position = game.get_square(xx, yy)
                 if not game.is_scrimmage(position) or position in positions_used:
                     continue
-                player = self._get_player(players, t)
+                player = choose_player(t)
                 players.remove(player)
                 actions.append(Action(ActionType.PLACE_PLAYER, position=position, player=player))
                 positions_used.add(position)
@@ -1668,7 +1692,7 @@ class Formation(Immutable):
                     position = game.get_square(xx, yy)
                     if game.is_scrimmage(position) or position in positions_used:
                         continue
-                    player = self._get_player(players, t)
+                    player = choose_player(t)
                     players.remove(player)
                     actions.append(Action(ActionType.PLACE_PLAYER, position=position, player=player))
                     positions_used.add(position)

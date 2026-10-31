@@ -63,6 +63,32 @@ def test_strip_ball_requires_actual_push(rooted):
     assert not game.has_report_of_type(OutcomeType.FUMBLE)
 
 
+@pytest.mark.parametrize('rooted', [False, True])
+@pytest.mark.parametrize('knock_down', [False, True])
+@pytest.mark.parametrize('depth', [1, 2])
+def test_blocked_chain_push_preserves_positions_and_original_knockdown(rooted, knock_down, depth):
+    game, players = season3_turn([(10, 5), (12, 4), (12, 6), (13, 4), (13, 6)],
+                                [(11, 5), (12, 5), (13, 5)], ball=(20, 12))
+    attacker, defender = players[0], players[5]
+    anchor = players[5 + depth]
+    attacker.extra_skills = [Skill.STRIP_BALL, Skill.EYE_GOUGE]
+    anchor.extra_skills = [Skill.TAKE_ROOT if rooted else Skill.STAND_FIRM]
+    anchor.state.taken_root = rooted
+    originals = [p.position for p in players]
+    with only_fixed_rolls(game, d6=[1, 1] if knock_down else []):
+        run_proc(game, Push(game, attacker, defender, knock_down=knock_down))
+        game.step(Action(ActionType.PUSH, position=game.get_square(12, 5)))
+        if depth == 2:
+            game.step(Action(ActionType.PUSH, position=game.get_square(13, 5)))
+        if not rooted:
+            game.step(Action(ActionType.USE_SKILL))
+    assert [p.position for p in players] == originals
+    assert defender.state.up != knock_down and anchor.state.up
+    assert not defender.state.eye_gouged
+    assert not game.has_report_of_type(OutcomeType.PUSHED)
+    assert not game.has_report_of_type(OutcomeType.FOLLOW_UP)
+
+
 def test_strip_ball_bounces_after_follow_up_and_before_knockdown():
     game, (attacker, defender) = season3_turn([(10, 5)], [(11, 5)], ball=(11, 5))
     attacker.extra_skills = [Skill.STRIP_BALL]

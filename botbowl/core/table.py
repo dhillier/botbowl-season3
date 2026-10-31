@@ -73,6 +73,8 @@ class RollType(Enum):
     DODGY_SNACK_ROLL = 39
     ARGUE_CALL_ROLL = 40
     PRO = 41
+    TEAM_CAPTAIN_ROLL = 42
+    SWARMING_ROLL = 43
 
 
 class OutcomeType(Enum):
@@ -101,6 +103,10 @@ class OutcomeType(Enum):
     CHEERING_ASSIST_USED = 1023
     CHARGE_START = 1024
     END_OF_CHARGE = 1025
+    BRIBERY_AND_CORRUPTION = 1026
+    RAISED_DEAD = 1027
+    SWARMING = 1028
+    TEAM_CAPTAIN_ROLL = 1029
     HEADS_WON = 1
     HEADS_LOSS = 2
     WEATHER_SWELTERING_HEAT = 3
@@ -451,6 +457,9 @@ class ActionType(Enum):
     PUNT = 87
     START_BALL_AND_CHAIN = 88
     BALL_AND_CHAIN = 89
+    RAISE_ZOMBIE = 90
+    RAISE_SKELETON = 91
+    RAISE_THRALL = 92
 
 
 class WeatherType(Enum):

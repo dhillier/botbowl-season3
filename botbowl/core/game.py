@@ -14,6 +14,7 @@ from botbowl.core.load import *
 from botbowl.core.procedure import *
 from botbowl.core.forward_model import Trajectory, MovementStep, AssignmentStep, CallableStep, Step
 from botbowl.core.geometry import under_interception_ruler
+from botbowl.core.roster import get_team_profile
 from copy import deepcopy
 from typing import Optional, Tuple, List, Union, Any
 
@@ -882,11 +883,26 @@ class Game:
                 any(p.has_skill(Skill.LEADER) for p in self.get_players_on_pitch(team)))
 
     def use_team_reroll(self, team: Team) -> None:
+        captain = next((p for p in self.get_players_on_pitch(team) if p.player_id == team.captain_id), None)
+        if captain is not None and self.has_team_rule(team, 'Team Captain'):
+            roll = DiceRoll([D6(self.rng)], roll_type=RollType.TEAM_CAPTAIN_ROLL, target=6)
+            self.report(Outcome(OutcomeType.TEAM_CAPTAIN_ROLL, team=team, player=captain, rolls=[roll]))
+            if roll.get_sum() == 6:
+                team.state.reroll_used = True
+                return
         if self.leader_available(team):
             team.state.leader_reroll = False
             team.state.reroll_used = True
         else:
             team.state.use_reroll()
+
+    def has_team_rule(self, team, rule):
+        if not self.is_season3:
+            return False
+        try:
+            return rule in get_team_profile(team.race).get('special_rules', [])
+        except ValueError:
+            return False
 
     def can_use_reroll(self, team: Team) -> bool:
         """
@@ -1627,6 +1643,9 @@ class Game:
 
         if tile is None:
             cnt = len(self.get_players_on_pitch(team=team))
+            if self.is_season3 and any(p.player_id == team.captain_id and not p.state.heated and
+                                      not p.state.snack_absent for p in self.get_reserves(team)):
+                return False
         else:
             for player in self.get_players_on_pitch(team=team):
                 if self.arena.board[player.position.y][player.position.x] is tile:
@@ -1666,6 +1685,11 @@ class Game:
             return self.is_setup_legal_count(team, tile=Tile.HOME_SCRIMMAGE, min_players=min_players)
         return self.is_setup_legal_count(team, tile=Tile.AWAY_SCRIMMAGE, min_players=min_players)
 
+    def setup_wing_rows(self, team):
+        tiles = (Tile.HOME_WING_LEFT, Tile.HOME_WING_RIGHT) if team == self.state.home_team else (
+            Tile.AWAY_WING_LEFT, Tile.AWAY_WING_RIGHT)
+        return [{y for y, row in enumerate(self.arena.board) if any(t is tile for t in row)} for tile in tiles]
+
     def is_setup_legal_wings(self, team: Team, min_players=0, max_players=2) -> bool:
         """
         :param team:
@@ -1673,6 +1697,11 @@ class Game:
         :param max_players:
         :return: True if team is setup legally on the wings.
         """
+        if self.is_season3:
+            # End-zone tiles replace the wing tile at each corner; those
+            # squares still belong to their wide zone during setup.
+            return all(min_players <= sum(p.position.y in rows for p in self.get_players_on_pitch(team)) <= max_players
+                       for rows in self.setup_wing_rows(team))
         if team == self.state.home_team:
             return self.is_setup_legal_count(team, tile=Tile.HOME_WING_LEFT, max_players=max_players, min_players=min_players) and \
                    self.is_setup_legal_count(team, tile=Tile.HOME_WING_RIGHT, max_players=max_players, min_players=min_players)
@@ -1905,7 +1934,11 @@ class Game:
         defender = self.get_player_at(to_position)
         assert defender is not None
         if not ignore_skills and defender.has_usable_skill(Skill.SIDE_STEP) and attacker is not None and not attacker.has_usable_skill(Skill.GRAB):
-            return self.get_adjacent_squares(to_position, out=True, occupied=False)
+            side_steps = self.get_adjacent_squares(to_position, out=not self.is_season3, occupied=False)
+            if side_steps:
+                return side_steps
+            # A boxed-in Side Step player must use the ordinary push squares,
+            # including a chain push. Planning needs the same fallback as Push.
         squares_to = self.get_adjacent_squares(to_position, out=True)
         squares_empty = []
         squares_out = []

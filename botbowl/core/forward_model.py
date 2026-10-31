@@ -303,6 +303,7 @@ class ReversibleDict(dict, Reversible):
         else:
             if self.trajectory_initialized():
                 value = add_reversibility(value, self._trajectory)
+                self.log_this(CallableStep(self, dict.__setitem__, (key, value), dict.__delitem__, (key,)))
             super().__setitem__(key, value)
 
     def pop(self, key):

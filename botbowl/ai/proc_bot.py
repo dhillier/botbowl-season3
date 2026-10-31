@@ -45,7 +45,9 @@ class ProcBot(Agent):
             else:
                 action = self.setup(game)
         elif isinstance(proc, Ejection):
-            if game.is_season3 and any(a.action_type == ActionType.ARGUE_CALL for a in game.get_available_actions()):
+            if game.is_season3 and proc.corruption_choice:
+                action = Action(ActionType.USE_REROLL)
+            elif game.is_season3 and any(a.action_type == ActionType.ARGUE_CALL for a in game.get_available_actions()):
                 action = Action(ActionType.ARGUE_CALL)
             else:
                 action = self.use_bribe(game)
@@ -115,6 +117,8 @@ class ProcBot(Agent):
             action = self.blood_lust_block_or_move(game)
         elif isinstance(proc, EatThrall):
             action = self.eat_thrall(game)
+        elif isinstance(proc, RaiseDead):
+            action = Action(game.get_available_actions()[0].action_type)
         else:
             if game.is_season3:
                 return self.season3_skill_decision(game)

@@ -119,6 +119,18 @@ def test_dodgy_snack_effect_and_expiry(snack_roll):
     assert not player.state.snack_absent
 
 
+def test_end_drive_heat_removal_expires_ball_possession_without_a_bounce():
+    game, (carrier,) = season3_turn([(10, 5)], ball=(10, 5))
+    game.state.weather = WeatherType.SWELTERING_HEAT
+    assert game.get_ball_carrier() == carrier
+    with only_fixed_rolls(game, d3=[1]):
+        run_proc(game, EndDrive(game))
+    assert carrier.position is None and carrier.state.heated
+    assert not game.get_ball().is_carried
+    assert game.get_ball_carrier() is None
+    assert not game.has_report_of_type(OutcomeType.BALL_BOUNCED)
+
+
 def test_dodgy_snack_tie_affects_both_teams():
     game, (home, away) = kickoff_game()
     with only_fixed_rolls(game, d6=[4, 4, 2, 1]):

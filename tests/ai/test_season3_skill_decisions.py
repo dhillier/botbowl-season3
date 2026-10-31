@@ -59,3 +59,21 @@ def test_scripted_coach_handles_brawler_decision():
     action = coach_for(game, attacker.team).act(game)
     assert action.action_type == ActionType.USE_SKILL
     assert game._is_action_allowed(action)
+
+
+def test_scripted_fanatic_uses_its_activation_and_direction_then_stops_before_rush():
+    game, (fanatic, opponent) = season3_turn([(10, 5)], [(13, 5)], ball=(20, 12))
+    fanatic.extra_skills = [Skill.BALL_AND_CHAIN, Skill.NO_BALL]
+    game.set_available_actions()
+    coach = coach_for(game, fanatic.team)
+    action = coach.act(game)
+    assert action.action_type == ActionType.START_BALL_AND_CHAIN and action.player == fanatic
+    game.step(action)
+    action = coach.act(game)
+    assert action.action_type == ActionType.BALL_AND_CHAIN and game._is_action_allowed(action)
+    with only_fixed_rolls(game, d6=[3]):
+        game.step(action)
+    assert fanatic.state.moves == 1
+    fanatic.state.moves = fanatic.get_ma()
+    game.set_available_actions()
+    assert coach.act(game).action_type == ActionType.END_PLAYER_TURN

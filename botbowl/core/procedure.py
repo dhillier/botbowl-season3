@@ -1121,6 +1121,44 @@ class Casualty(Procedure):
                 and 'Big Guy' not in self.player.role.keywords
                 and not any(self.player.has_skill(skill) for skill in (Skill.DECAY, Skill.REGENERATION, Skill.STUNTY))):
             PlagueRidden(self.game, self.inflictor)
+        if (self.game.is_season3 and self.roll is not None and
+                CasualtyEffect.DEAD in self.player.state.injuries_gained and
+                self.player.get_st() <= 4 and not self.player.has_skill(Skill.STUNTY)):
+            team = self.game.get_opp_team(self.player.team)
+            if self.game.has_team_rule(team, 'Masters of Undeath') and not team.state.raised_dead:
+                RaiseDead(self.game, team)
+
+
+class RaiseDead(Procedure):
+    """Choose the roster's actual Lineman type after a confirmed casualty death."""
+
+    def __init__(self, game, team):
+        super().__init__(game)
+        self.team = team
+        self.roles = {ActionType.RAISE_ZOMBIE if 'Zombie' in role.name else
+                      ActionType.RAISE_SKELETON if 'Skeleton' in role.name else ActionType.RAISE_THRALL: role.name
+                      for race in game.ruleset.races if race.name == team.race
+                      for role in race.roles if 'Lineman' in role.keywords}
+
+    def step(self, action):
+        if action is not None and action.action_type in self.roles:
+            role = self.game.ruleset.get_role(self.roles[action.action_type], self.team.race)
+            number = max((p.nr for p in self.team.players), default=0) + 1
+            identity = '{}-raised-{}'.format(self.team.team_id, number)
+            recruit = Player(identity, role, role.name, number, self.team)
+            self.team.state.raised_dead = True
+            self.team.players.append(recruit)
+            self.game.state.player_by_id[identity] = recruit
+            self.game.state.team_by_player_id[identity] = self.team
+            self.game.get_reserves(self.team).append(recruit)
+            self.game.report(Outcome(OutcomeType.RAISED_DEAD, team=self.team, player=recruit))
+        return True
+
+    def available_actions(self):
+        if not self.roles or self.team.state.raised_dead:
+            return []
+        return [ActionChoice(kind, team=self.team) for kind in self.roles] + [
+            ActionChoice(ActionType.SELECT_NONE, team=self.team)]
 
 
 class PlagueRidden(Procedure):
@@ -1129,7 +1167,7 @@ class PlagueRidden(Procedure):
     def __init__(self, game, player):
         super().__init__(game)
         self.player = player
-        self.roles = [role for race in game.ruleset.races if race.name == player.team.race
+        self.roles = [role.name for race in game.ruleset.races if race.name == player.team.race
                       for role in race.roles if 'Lineman' in role.keywords]
 
     def step(self, action):
@@ -1143,7 +1181,7 @@ class PlagueRidden(Procedure):
                 identity = '{}-plague-{}'.format(team.team_id, number)
             # Every roster with this trait has one Lineman profile. Keep the
             # canonical profile, including Decay and regeneration parameters.
-            role = self.roles[0]
+            role = self.game.ruleset.get_role(self.roles[0], team.race)
             recruit = Player(identity, role, role.name, number, team)
             team.players.append(recruit)
             self.game.state.player_by_id[identity] = recruit
@@ -1433,6 +1471,8 @@ class Ejection(Procedure):
         self.player = player
         self.awaiting_bribe = False
         self.argue_resolved = False
+        self.argue_roll = None
+        self.corruption_choice = False
 
     def start(self):
         self.awaiting_bribe = self.player.team.state.bribes > 0
@@ -1476,6 +1516,9 @@ class Ejection(Procedure):
 
     def available_actions(self):
         if self.game.is_season3:
+            if self.corruption_choice:
+                return [ActionChoice(kind, team=self.player.team)
+                        for kind in (ActionType.USE_REROLL, ActionType.DONT_USE_REROLL)]
             if not self.argue_resolved and self.player.team.state.can_argue:
                 return [ActionChoice(ActionType.ARGUE_CALL, team=self.player.team),
                         ActionChoice(ActionType.DONT_ARGUE_CALL, team=self.player.team)]
@@ -1492,9 +1535,22 @@ class Ejection(Procedure):
         if self.player.state.ejected:
             return True
         if not self.argue_resolved:
+            if self.corruption_choice:
+                self.corruption_choice = False
+                if action.action_type == ActionType.USE_REROLL:
+                    self.player.team.state.bribery_used = True
+                    self.game.report(Outcome(OutcomeType.BRIBERY_AND_CORRUPTION, team=self.player.team,
+                                             rolls=[self.argue_roll]))
+                    self.argue_roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.ARGUE_CALL_ROLL)
+            elif action is not None and action.action_type == ActionType.ARGUE_CALL:
+                self.argue_roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.ARGUE_CALL_ROLL)
+                if (self.argue_roll.get_sum() == 1 and not self.player.team.state.bribery_used and
+                        self.game.has_team_rule(self.player.team, 'Bribery and Corruption')):
+                    self.corruption_choice = True
+                    return False
             self.argue_resolved = True
-            if action is not None and action.action_type == ActionType.ARGUE_CALL:
-                roll = DiceRoll([D6(self.game.rng)], roll_type=RollType.ARGUE_CALL_ROLL)
+            if self.argue_roll is not None:
+                roll = self.argue_roll
                 if roll.get_sum() == 6:
                     self.game.report(Outcome(OutcomeType.ARGUE_CALL_SUCCESS, player=self.player, rolls=[roll]))
                     if self.game.state.current_team == self.player.team:
@@ -5340,8 +5396,22 @@ class Push(Procedure):
             # Stop secondary clocks
             self.game.remove_secondary_clocks()
 
+            # A later player may refuse the chain push with Stand Firm, Take
+            # Root or Chomp. Propagate the blocked movement up the chain while
+            # still applying the original block's knockdown in place.
+            if self.game.get_player_at(self.push_to) is not None:
+                if self.knock_down:
+                    self.resolve_knockdown(self.player, in_crowd=False, armor_roll=True,
+                                           inflictor=self.pusher if self.game.is_season3 and not self.chain else None,
+                                           block=not self.chain,
+                                           turnover=self.game.is_season3 and self.player.team == self.game.state.current_team)
+                return True
+
             # Move pushed player
             self.game.move(self.player, self.push_to)
+            if self.game.is_season3:
+                self.game.report(Outcome(OutcomeType.PUSHED_INTO_CROWD if self.crowd else OutcomeType.PUSHED,
+                                         player=self.player, position=None if self.crowd else self.push_to))
             if self.game.is_season3 and not self.chain and self.pusher_skill(Skill.EYE_GOUGE):
                 self.player.state.eye_gouged = True
                 self.game.report(Outcome(OutcomeType.SKILL_USED, player=self.pusher, skill=Skill.EYE_GOUGE))
@@ -5452,11 +5522,12 @@ class Push(Procedure):
 
             # Report
             if self.crowd:
-                self.game.report(Outcome(OutcomeType.PUSHED_INTO_CROWD, player=self.player))
+                if not self.game.is_season3:
+                    self.game.report(Outcome(OutcomeType.PUSHED_INTO_CROWD, player=self.player))
                 if self.game.is_season3 and self.player.team == self.game.state.current_team:
                     root_push = next(p for p in self.game.state.stack.items if isinstance(p, Push))
                     root_push.crowd_turnover = True
-            else:
+            elif not self.game.is_season3:
                 self.game.report(Outcome(OutcomeType.PUSHED, player=self.player, position=action.position))
 
             # Follow up - wait if push is delayed
@@ -7015,10 +7086,56 @@ def _random_players(game, players, count):
     return list(game.rng.choice(players, size=count, replace=False))
 
 
+class Swarming(Procedure):
+    """Extra reserve Linemen after both ordinary setups, before the kick-off."""
+
+    def __init__(self, game, team):
+        super().__init__(game)
+        self.team = team
+        self.remaining = 0
+
+    def eligible(self):
+        return [p for p in self.game.get_reserves(self.team) if 'Lineman' in p.role.keywords
+                and not p.state.heated and not p.state.snack_absent]
+
+    def start(self):
+        if self.eligible():
+            roll = DiceRoll([D3(self.game.rng)], roll_type=RollType.SWARMING_ROLL)
+            self.remaining = roll.get_sum()
+            self.game.report(Outcome(OutcomeType.SWARMING, team=self.team, n=self.remaining, rolls=[roll]))
+
+    def step(self, action):
+        if action is None or action.action_type == ActionType.END_SETUP:
+            return True
+        self.game.reserves_to_pitch(action.player, action.position)
+        self.remaining -= 1
+        self.game.report(Outcome(OutcomeType.PLAYER_PLACED, team=self.team,
+                                 player=action.player, position=action.position))
+        return self.remaining == 0
+
+    def available_actions(self):
+        players = self.eligible()
+        if self.remaining == 0 or not players:
+            return []
+        pitch_players = self.game.get_players_on_pitch(self.team)
+        full_wings = [rows for rows in self.game.setup_wing_rows(self.team)
+                      if sum(p.position.y in rows for p in pitch_players) >= self.game.config.wing_max]
+        positions = [square for square in self.game.get_team_side(self.team)
+                     if self.game.get_player_at(square) is None and
+                     not any(square.y in rows for rows in full_wings)]
+        if not positions:
+            return []
+        return [ActionChoice(ActionType.PLACE_PLAYER, team=self.team, players=players, positions=positions),
+                ActionChoice(ActionType.END_SETUP, team=self.team)]
+
+
 class StartDrive(Procedure):
     def step(self, action):
         self.game.state.drive_active = True
         Kickoff(self.game)
+        for team in (self.game.get_receiving_team(), self.game.get_kicking_team()):
+            if self.game.has_team_rule(team, 'Swarming'):
+                Swarming(self.game, team)
         Setup(self.game, self.game.get_receiving_team())
         Setup(self.game, self.game.get_kicking_team())
         ClearBoard(self.game)
@@ -7034,6 +7151,11 @@ class EndDrive(Procedure):
     def step(self, action):
         if self.phase == 0:
             self.phase = 1
+            # Play has ended. Heat or Secret Weapon ejections may remove the
+            # carrier before the next setup (or at full time), so possession
+            # must expire before those removals without an in-play bounce.
+            for ball in self.game.state.pitch.balls:
+                ball.is_carried = False
             # Last drive's heat exclusions have served their one-drive duration.
             for team in self.game.state.teams:
                 for player in team.players:
