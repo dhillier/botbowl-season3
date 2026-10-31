@@ -28,7 +28,7 @@ python scripts/build_web_js.py --check
 python -m pytest -q
 ```
 
-Start the existing local web interface with `python -m botbowl.web.server`, open the address it prints, and select the Season 3 preview mode. See [installation notes](docs/installation.md) for inherited platform details.
+Start the existing local web interface with `python examples/server_example.py`, open `http://127.0.0.1:1234`, and select the Season 3 preview mode. This entry point also registers the scripted opponent. See [installation notes](docs/installation.md) for inherited platform details.
 
 ## Included
 
